@@ -1,11 +1,14 @@
+#!/usr/bin/python3
 import requests
 import xml.etree.ElementTree as Et
-import sqlite3
-import traceback
-import threading
-import os
+from sqlite3 import connect
+from traceback import print_exc
+from threading import Thread
+from os import path, mkdir, system as os_system
 
-conn = sqlite3.connect("mydatabase.db")
+# requests, urllib3 instlled to wsl
+
+conn = connect("mydatabase.db")
 cursor = conn.cursor()
 
 from sys import stderr
@@ -18,10 +21,10 @@ RE_DB_SITE = re.compile("pic:[ \n](\d+\.(png|jpg|jpeg|gif|bmp))", re.IGNORECASE)
 INTERNET_ON = False
 RUNNING = True
 SECONDS_PER_REQUEST = 15
-RESULT_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+RESULT_FOLDER = path.join(path.dirname(path.abspath(__file__)), "results")
 
-if not os.path.exists(RESULT_FOLDER):
-    os.mkdir(RESULT_FOLDER)
+if not path.exists(RESULT_FOLDER):
+    mkdir(RESULT_FOLDER)
 
 
 def write_time(func):
@@ -80,7 +83,7 @@ class ResultSaver:
 
     @write_time
     def write(self) -> None:
-        with open(os.path.join(RESULT_FOLDER, f"{self._name}.json"), "w+") as fo:
+        with open(path.join(RESULT_FOLDER, f"{self._name}.json"), "w+") as fo:
             fo.write(self.to_json())
 
 
@@ -94,17 +97,23 @@ def internet_on():
 
 @write_time
 def fin_pic(sss):
-    def open_chrome(val):
-        com2 = f"chrome {val}"
-        os.system(com2)
-        print(f"{val} is opened in Chrome")
+    prefix = "   !!!: "
+    def open_chrome(val) -> bool:
+        from platform import system as platform_system
+        browser = ["chrome", "Chrome"]
+        current_system = platform_system()
+        null = {"Windows": "nul"}.get(platform_system(), "/dev/null")
+        com2 = f"{browser[0]} {val} > {null} 2> {null}"
+        res = os_system(com2)
+        if res == 0:
+            print(f"{prefix}{val} is opened in {browser[1]}")
+            return True
+        return False
 
     def copy_to_buffer(val):
-        """com = f"echo {val}|clip"
-        os.system(com)"""
         import clipboard
         clipboard.copy(val)
-        print(f"{val} is copied to buffer")
+        print(f"{prefix}{val} is copied to buffer")
 
     q = re.findall(RE_SITE, sss)
     q2 = re.findall(RE_DB_SITE, sss)
@@ -113,19 +122,22 @@ def fin_pic(sss):
         for j in q:
             if int_on:
                 try:
-                    open_chrome(j[0])
-                except Exception:
+                    if not open_chrome(j[0]):
+                        copy_to_buffer(j[0])
+                except Exception as e:
                     copy_to_buffer(j[0])
             else:
                 copy_to_buffer(j[0])
         for j in q2:
+            uri = f"https://db.chgk.info/images/db/{j[0]}"
             if int_on:
                 try:
-                    open_chrome(f"https://db.chgk.info/images/db/{j[0]}")
+                    if not open_chrome(uri):
+                        copy_to_buffer(uri)
                 except Exception:
-                    copy_to_buffer(f"https://db.chgk.info/images/db/{j[0]}")
+                    copy_to_buffer(uri)
             else:
-                copy_to_buffer(f"https://db.chgk.info/images/db/{j[0]}")
+                copy_to_buffer(uri)
 
 
 
@@ -149,11 +161,11 @@ def create_table(name, arr):
 
 @write_time
 def read_local(src):
-    cur_dir = os.path.dirname(os.path.abspath(__file__))
-    par_dir = os.path.dirname(cur_dir)
-    lcl_src = os.path.join(par_dir, "ChGKWordGetter", "src", "%s.xml")
+    cur_dir = path.dirname(path.abspath(__file__))
+    par_dir = path.dirname(cur_dir)
+    lcl_src = path.join(par_dir, "ChGKWordGetter", "src", "%s.xml")
     print(lcl_src % src)
-    if not os.path.isfile(lcl_src % src):
+    if not path.isfile(lcl_src % src):
         return "<tournament><Title>Unknown package</Title></tournament>"
     with open(lcl_src % src, "r", encoding="utf-8") as fo:
         txt = fo.read()
@@ -161,7 +173,7 @@ def read_local(src):
 
 @write_time
 def read_global(src):
-    url = 'https://db.chgk.info/tour/%sxml'
+    url = 'https://db.chgk.info/tour/%s/xml'
     print(url % src)
     try:
         req = requests.get(url % src, timeout=2)
@@ -183,9 +195,6 @@ def read_page(src=None, name=None):
             src = src[1:]
             lcl = True
             name = src[1:]
-        else:
-            # from os.path import sep
-            src += "/"
     if lcl:
         txt = read_local(src)
     else:
@@ -197,7 +206,6 @@ def read_page(src=None, name=None):
     # pack_src = "pack/%s.xml" % src
     # with codecs.open(pack_src, "w", "utf-8") as fo:
     #     fo.write(r.text)
-    #     fo.close()
     #
     # root = et.parse(pack_src).getroot()
     root = Et.fromstring(txt)
@@ -249,7 +257,11 @@ def read_questions(root, src):
     @write_time
     def get_parent_title():
         parent_src = src.rsplit(".", 1)[0]
-        root = Et.fromstring(read_local(parent_src))
+        if INTERNET_ON:
+            xml_text = read_global(parent_src)
+        else:
+            xml_text = read_local(parent_src)
+        root = Et.fromstring(xml_text)
         return root.find("Title").text
 
     print("\n\t\t\t", get_parent_title(), root.find("Title").text)
@@ -265,8 +277,11 @@ def read_questions(root, src):
         fin_pic(tx)
         pr(tx)
         input()
-        pr(f"Ответ: {i.find('Answer').text}")
-        pr(f"Зачёт: {i.find('PassCriteria').text}")
+        answer = i.find('Answer').text
+        fin_pic(answer)
+        pr(f"Ответ: {answer}")
+        pass_criteria = i.find('PassCriteria').text
+        pr(f"Зачёт: {pass_criteria}")
         com = f"Комментарий: {i.find('Comments').text}"
         fin_pic(com)
         pr(com)
@@ -313,7 +328,7 @@ if __name__ == '__main__':
     # s = "mkm17.6"
 
     try:
-        check_connection = threading.Thread(target=update_intrenet_on)
+        check_connection = Thread(target=update_intrenet_on)
         check_connection.start()
         while True:
             s = None
@@ -325,7 +340,7 @@ if __name__ == '__main__':
                 break
             print("\n\n")
     except Exception as e:
-        traceback.print_exc()
+        print_exc()
         input(f"ERROR: {e}")
     finally:
         RUNNING = False
@@ -345,5 +360,9 @@ if __name__ == '__main__':
 # DONE: remove waiting while checking internet connection (while offline)
 # DONE: fix saving when between package and number dot or nothing instead of slash
 # DONE: fix playing online with unknown package not from base (problems with parent and receiving package name)
+# DONE: fix unknown name of packages not from local base
 # TODO: play next tour from same tournament by default
-# TODO: search pics in answer (ruch19st_u.1/5)
+# DONE: search pics in answer (ruch19st_u.1/5)
+# DONE: check if chrome dosn't exist and do something if don't
+# DONE: remove output and error output from system while copying
+# DONE: make chrome opening crossplatform
