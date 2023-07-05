@@ -1,0 +1,9 @@
+.idea/
+ChGK.lnk
+*.db
+db_play.py
+duplets/
+getGood.py
+good_quests.txt
+*.xml
+test.txt
