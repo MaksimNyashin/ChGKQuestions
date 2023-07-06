@@ -100,14 +100,20 @@ def fin_pic(sss):
     prefix = "   !!!: "
     def open_chrome(val) -> bool:
         from platform import system as platform_system
-        browser = ["chrome", "Chrome"]
         current_system = platform_system()
-        null = {"Windows": "nul"}.get(platform_system(), "/dev/null")
-        com2 = f"{browser[0]} {val} > {null} 2> {null}"
-        res = os_system(com2)
-        if res == 0:
-            print(f"{prefix}{val} is opened in {browser[1]}")
-            return True
+        browsers = [
+            ["chrome", "Google Chrome"],
+            ["firefox", "Firefox"],
+            ["browser", "Yandex Browser"],
+            [{"Windows": "start", "Linux": "xdg-open", "Darwin": "open"}.get(current_system, "Unknown System"), "Default browser"],
+        ]
+        null = {"Windows": "nul"}.get(current_system, "/dev/null")
+        for browser in browsers:
+            com2 = f"{browser[0]} {val} > {null} 2> {null}"
+            res = os_system(com2)
+            if res == 0:
+                print(f"{prefix}{val} is opened in {browser[1]}")
+                return True
         return False
 
     def copy_to_buffer(val):
@@ -366,3 +372,5 @@ if __name__ == '__main__':
 # DONE: check if chrome dosn't exist and do something if don't
 # DONE: remove output and error output from system while copying
 # DONE: make chrome opening crossplatform
+# DONE: Added opening images in Firefox and Yandex browser
+# DONE: Added opening images in default browser
