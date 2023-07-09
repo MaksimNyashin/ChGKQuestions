@@ -74,7 +74,7 @@ def read_text_aloud(txt: str):
             cnt -= 1
             if cnt == 0:
                 mid = txt[st: ind].lower()
-                if txt.find("Ведущему") == -1:
+                if txt.find("Ведущему", st, ind) == -1:
                     b = True
             continue
         elif cnt == 1:
@@ -342,7 +342,7 @@ def read_questions(root, src):
     num = len(ff)
     result_saver = ResultSaver(num, root.find("TextId").text)
     right, total = 0, 0
-    for i in ff[2:]:
+    for i in ff:
         total += 1
         quest_number = (int(i.find('Number').text) - 1) % num + 1
 
