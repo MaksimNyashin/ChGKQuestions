@@ -2,8 +2,16 @@
 ChGK.lnk
 *.db
 db_play.py
-duplets/
 getGood.py
 good_quests.txt
 *.xml
 test.txt
+reading_aloud/
+*__pycache__/
+tmp/
+package_by_author/
+good.txt
+results/
+
+duplets/
+get_copy_text/

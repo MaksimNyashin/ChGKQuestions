@@ -1,30 +1,18 @@
 #!/usr/bin/python3
+from my_config import *
 import requests
 import xml.etree.ElementTree as Et
 from sqlite3 import connect
 from traceback import print_exc
 from threading import Thread
-from os import path, mkdir, system as os_system
+from os import path, system as os_system
 
 # requests, urllib3 instlled to wsl
-
-conn = connect("mydatabase.db")
-cursor = conn.cursor()
-
-from sys import stderr
 import re
 
-DEBUG = False
-MEASURE_TIME = True and DEBUG
-RE_SITE = re.compile("(https?://[a-zA-Z\d./_-]*\.(png|jpg|jpeg|gif|bmp))", re.IGNORECASE)
-RE_DB_SITE = re.compile("pic:[ \n](\d+\.(png|jpg|jpeg|gif|bmp))", re.IGNORECASE)
-INTERNET_ON = False
-RUNNING = True
-SECONDS_PER_REQUEST = 15
-RESULT_FOLDER = path.join(path.dirname(path.abspath(__file__)), "results")
 
-if not path.exists(RESULT_FOLDER):
-    mkdir(RESULT_FOLDER)
+conn = connect(DB_NAME)
+cursor = conn.cursor()
 
 
 def write_time(func):
@@ -38,6 +26,7 @@ def write_time(func):
         return return_value
 
     return wrapper
+
 
 def update_intrenet_on():
     from time import sleep
@@ -55,6 +44,68 @@ def update_intrenet_on():
         sleep(1)
 
 
+def read_text_aloud(txt: str):
+    def _read_text(txt: str) -> None:
+        # print(txt)
+        # return
+        readable_text = f'CreateObject("SAPI.SpVoice").Speak "{txt}"'
+        with open(READ_ALOUD_FILE, "w") as fo:
+            fo.write(readable_text)
+        os_system(READ_ALOUD_FILE)
+
+    if not IS_READ_ALOUD:
+        return
+
+    txt = txt.replace("\r", "").replace("\n", " ").replace("\"", "\'").replace("«", "\'").replace("»", "\'")
+    res = []
+    cnt = 0
+    b = False
+    st = 0
+    razd = []
+    for ind, c in enumerate(txt):
+        if c in '([{<':
+            cnt += 1
+            if cnt == 1:
+                st = ind
+            continue
+        elif cnt == 0:
+            res.append(c)
+        elif c in '}])>':
+            cnt -= 1
+            if cnt == 0:
+                mid = txt[st: ind].lower()
+                if txt.find("Ведущему") == -1:
+                    b = True
+            continue
+        elif cnt == 1:
+            razd.append(c)
+    _read_text(f'{"Внимание, в вопросе есть раздаточный материал!    " if b else ""}{"".join(res)}')
+
+
+def my_input(txt: str, **kwargs):
+    global IS_READ_ALOUD
+    while True:
+        res = input(f"-> {txt}")
+        result = res.lower()
+        if result in MUTE_KEYS:
+            IS_READ_ALOUD = False
+            print("Reading aloud turned off")
+        elif result in UNMUTE_KEYS:
+            if platform_system == SYSTEM_WINDOWS:
+                IS_READ_ALOUD = True
+                print("Reading aloud turned on")
+        else:
+            return res
+
+
+def run_system_command(cmnd):
+    null = {SYSTEM_WINDOWS: "nul"}.get(CURRENT_SYSTEM, "/dev/null")
+    return os_system(f"{cmnd} > {null} 2> {null}")
+
+
+def kill_reading_aloud():
+    run_system_command("taskkill /im wscript.exe /f")
+
 
 class ResultSaver:
     def __init__(self, number: int,  name: str):
@@ -67,7 +118,7 @@ class ResultSaver:
 
     @write_time
     def set_author(self, num: int, author: str) -> None:
-        if author[-1] == ",":
+        while not('а' <= author[-1] <= 'я'):
             author = author[:-1]
         if 0 < num <= self._number:
             self._authors[author] = self._authors.get(author, 0) | (1 << (num - 1))
@@ -83,7 +134,7 @@ class ResultSaver:
 
     @write_time
     def write(self) -> None:
-        with open(path.join(RESULT_FOLDER, f"{self._name}.json"), "w+") as fo:
+        with open(path.join(RESULT_DIR, f"{self._name}.json"), "w+") as fo:
             fo.write(self.to_json())
 
 
@@ -99,18 +150,15 @@ def internet_on():
 def fin_pic(sss):
     prefix = "   !!!: "
     def open_chrome(val) -> bool:
-        from platform import system as platform_system
-        current_system = platform_system()
         browsers = [
             ["chrome", "Google Chrome"],
             ["firefox", "Firefox"],
             ["browser", "Yandex Browser"],
-            [{"Windows": "start", "Linux": "xdg-open", "Darwin": "open"}.get(current_system, "Unknown System"), "Default browser"],
+            [{SYSTEM_WINDOWS: "start", SYSTEM_LINUX: "xdg-open", SYSTEM_MACOS: "open"}.get(CURRENT_SYSTEM, "Unknown System"), "Default browser"],
         ]
-        null = {"Windows": "nul"}.get(current_system, "/dev/null")
         for browser in browsers:
-            com2 = f"{browser[0]} {val} > {null} 2> {null}"
-            res = os_system(com2)
+            com2 = f"{browser[0]} {val}"
+            res = run_system_command(com2)
             if res == 0:
                 print(f"{prefix}{val} is opened in {browser[1]}")
                 return True
@@ -120,6 +168,9 @@ def fin_pic(sss):
         import clipboard
         clipboard.copy(val)
         print(f"{prefix}{val} is copied to buffer")
+
+    if sss is None:
+        return
 
     q = re.findall(RE_SITE, sss)
     q2 = re.findall(RE_DB_SITE, sss)
@@ -165,6 +216,7 @@ def create_table(name, arr):
     else:
         print("already exists")
 
+
 @write_time
 def read_local(src):
     cur_dir = path.dirname(path.abspath(__file__))
@@ -176,6 +228,7 @@ def read_local(src):
     with open(lcl_src % src, "r", encoding="utf-8") as fo:
         txt = fo.read()
     return txt
+
 
 @write_time
 def read_global(src):
@@ -223,9 +276,9 @@ def read_page(src=None, name=None):
     if len(ar) > 0:
         create_table(name, ar)
         qw = random.randint(0, len(ar) - 1)
-        read_page(ar[qw], ar[qw])
+        return read_page(ar[qw], ar[qw])
     else:
-        read_questions(root, src)
+        return read_questions(root, src)
         # import webbrowser
         # webbrowser.get("google-chrome").open("https://db.chgk.info/tour/" + src)
     # for i in ar:
@@ -270,33 +323,58 @@ def read_questions(root, src):
         root = Et.fromstring(xml_text)
         return root.find("Title").text
 
+    @write_time
+    def get_next_tour():
+        parent_src, tour_num = src.rsplit(".", 1)
+        tour_num = int(tour_num) + 1
+        if INTERNET_ON:
+            xml_text = read_global(parent_src)
+        else:
+            xml_text = read_local(parent_src)
+        root = Et.fromstring(xml_text)
+        tours = root.findall("tour/Number")
+        return f"{parent_src}.{tour_num}" if (tour_num) in [int(t.text) for t in tours] else None
+
+
     print("\n\t\t\t", get_parent_title(), root.find("Title").text)
 
     ff = root.findall("question")
     num = len(ff)
     result_saver = ResultSaver(num, root.find("TextId").text)
     right, total = 0, 0
-    for i in ff:
+    for i in ff[2:]:
         total += 1
         quest_number = (int(i.find('Number').text) - 1) % num + 1
-        tx = f"{quest_number}/{num}) {i.find('Question').text}"
+
+        quest = i.find('Question').text
+        tx = f"{quest_number}/{num}) {quest}"
+        reading = Thread(target=read_text_aloud, args=(quest,))
+        reading.start()
         fin_pic(tx)
         pr(tx)
         input()
+        kill_reading_aloud()
+        reading.join()
+
         answer = i.find('Answer').text
         fin_pic(answer)
         pr(f"Ответ: {answer}")
+
         pass_criteria = i.find('PassCriteria').text
+        fin_pic(pass_criteria)
         pr(f"Зачёт: {pass_criteria}")
+
         com = f"Комментарий: {i.find('Comments').text}"
         fin_pic(com)
         pr(com)
+
         pr(f"Автор: {i.find('Authors').text}")
         result_saver.set_author(quest_number, " ".join(i.find("Authors").text.split(' ', 2)[:2]))
+        
         saved = False
         while True:
             if not saved:
-                inp = input("Сохранить или взят> ")
+                inp = my_input("Сохранить или взят> ")
                 if inp == "save" or ("сохранить".startswith(inp) and len(inp) > 1) or inp == "ыфму":
                     tmp_src = src
                     if tmp_src[-1] == ".":
@@ -304,22 +382,25 @@ def read_questions(root, src):
                     if tmp_src[-1] != "/":
                         tmp_src += "/"
                     z = tmp_src + i.find("Number").text
-                    with open("good.txt", "a+") as fo:
+                    with open(GOOD_FILE, "a+") as fo:
                         fo.write(z + ";")
                     print(z)
                     saved = True
-                    inp = input("Взят> ")
+                    continue
             else:
-                inp = input("Взят> ")
+                inp = my_input("Взят> ")
             if inp in ("0", "1"):
                 result_saver.set_answer(quest_number, int(inp))
                 if inp == "1":
                     right += 1
                 break
+
         print(f"Взято: {right}/{total}\n")
+
     print(result_saver.to_json())
     result_saver.write()
     input("Игра окончена")
+    return get_next_tour()
 
 
 if __name__ == '__main__':
@@ -336,13 +417,20 @@ if __name__ == '__main__':
     try:
         check_connection = Thread(target=update_intrenet_on)
         check_connection.start()
+        next_tour = None
         while True:
             s = None
-            pac = input("Package: ")
+            if next_tour is None:
+                pac = my_input("Package: ")
+            else:
+                pac = next_tour
             if pac != "":
                 s = pac
-            read_page(s, s)
-            if input("Press ENTER to play one more time: ") != "":
+            next_tour = read_page(s, s)
+            if next_tour is not None:
+                if my_input(f"Press ENTER to play '{next_tour}'") != "":
+                    next_tour = None
+            if next_tour is None and my_input("Press ENTER to play one more time: ") != "":
                 break
             print("\n\n")
     except Exception as e:
@@ -350,6 +438,7 @@ if __name__ == '__main__':
         input(f"ERROR: {e}")
     finally:
         RUNNING = False
+        kill_reading_aloud()
         check_connection.join()
     # read_page("ovsch20.3_u.1", "ovsch20.3_u.1")
     # cursor.execute("""SELECT * FROM links""")
@@ -367,10 +456,17 @@ if __name__ == '__main__':
 # DONE: fix saving when between package and number dot or nothing instead of slash
 # DONE: fix playing online with unknown package not from base (problems with parent and receiving package name)
 # DONE: fix unknown name of packages not from local base
-# TODO: play next tour from same tournament by default
+# DONE: Added playing next tour from same tournament by default
 # DONE: search pics in answer (ruch19st_u.1/5)
 # DONE: check if chrome dosn't exist and do something if don't
 # DONE: remove output and error output from system while copying
 # DONE: make chrome opening crossplatform
 # DONE: Added opening images in Firefox and Yandex browser
 # DONE: Added opening images in default browser
+# DONE: Added reading questions aloud (only on Windows)
+# DONE: Fixed issue with finding pics in None
+# DONE: Added my_input to read user keys
+# DONE: Added muting and unmiuting reading aloud (between questions)
+# DONE: Added interruptions to reading questions aloud
+# TODO: add exception handler when there is no such package
+# TODO: add duplets and blitz to reading
