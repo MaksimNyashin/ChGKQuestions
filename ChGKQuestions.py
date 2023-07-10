@@ -82,10 +82,41 @@ def read_text_aloud(txt: str):
     _read_text(f'{"Внимание, в вопросе есть раздаточный материал!    " if b else ""}{"".join(res)}')
 
 
-def my_input(txt: str, **kwargs):
+class Reader:
+    _instance=None
+
+    def __init__(self, lines: str):
+        global IS_READ_ALOUD
+        self._pos = 0
+        self._lines = lines.split("\n")
+        self._is_read_aloud = IS_READ_ALOUD
+        IS_READ_ALOUD = False
+        Reader._instance = self
+
+    def input(self, txt: str = "") -> str:
+        global IS_READ_ALOUD
+        if self._pos + 1 < len(self._lines):
+            result = self._lines[self._pos]
+            print(f"{txt}{result}")
+            self._pos += 1
+            if self._pos + 1 == len(self._lines):
+                IS_READ_ALOUD = self._is_read_aloud
+            return result
+        return input(txt)
+
+    @classmethod
+    def get_instance(cls):
+        return cls._instance
+
+
+def mid_input(txt: str = "") -> str:
+    return Reader.get_instance().input(txt)
+
+
+def key_input(txt: str, **kwargs) -> str:
     global IS_READ_ALOUD
     while True:
-        res = input(f"-> {txt}")
+        res = mid_input(f"-> {txt}")
         result = res.lower()
         if result in MUTE_KEYS:
             IS_READ_ALOUD = False
@@ -115,6 +146,7 @@ class ResultSaver:
         self._result = 0
         self._day = datetime.datetime.today().strftime("%d.%m.%Y")
         self._authors = {}
+        self._last = 0
 
     @write_time
     def set_author(self, num: int, author: str) -> None:
@@ -125,8 +157,9 @@ class ResultSaver:
 
     @write_time
     def set_answer(self, num: int, is_suc: bool) -> None:
-        if is_suc and 0 < num <= self._number:
-            self._result |= 1 << (num - 1)
+        if 0 < num <= self._number:
+            self._result |= is_suc << (num - 1)
+            self._last = max(self._last, num)
 
     def to_json(self) -> str:
         import json
@@ -136,6 +169,15 @@ class ResultSaver:
     def write(self) -> None:
         with open(path.join(RESULT_DIR, f"{self._name}.json"), "w+") as fo:
             fo.write(self.to_json())
+        self._last = -1
+
+    @write_time
+    def write_unfinished(self) -> None:
+        if self._last == -1:
+            res = ""
+        res = "\n".join([f"{self._name}\n"] + [f"{self._result >> i & 1}\n" for i in range(self._last)])
+        with open(UNFINISHED_FILE, "w") as fo:
+            fo.write(res)
 
 
 def upd(sss):
@@ -224,7 +266,7 @@ def read_local(src):
     lcl_src = path.join(par_dir, "ChGKWordGetter", "src", "%s.xml")
     print(lcl_src % src)
     if not path.isfile(lcl_src % src):
-        return "<tournament><Title>Unknown package</Title></tournament>"
+        return DEFAULT_XML
     with open(lcl_src % src, "r", encoding="utf-8") as fo:
         txt = fo.read()
     return txt
@@ -321,10 +363,13 @@ def read_questions(root, src):
         else:
             xml_text = read_local(parent_src)
         root = Et.fromstring(xml_text)
-        return root.find("Title").text
+        title = next(root.iter("Title"), None)
+        return title.text if title is not None else UNKNOWN_PACKAGE
 
     @write_time
     def get_next_tour():
+        if src.find(".", 0, -1) == -1:
+            return None
         parent_src, tour_num = src.rsplit(".", 1)
         tour_num = int(tour_num) + 1
         if INTERNET_ON:
@@ -336,71 +381,86 @@ def read_questions(root, src):
         return f"{parent_src}.{tour_num}" if (tour_num) in [int(t.text) for t in tours] else None
 
 
+    title = next(root.iter("Title"), None)
+    if title is None:
+        print("Error: Not found package with such name")
+        return None
     print("\n\t\t\t", get_parent_title(), root.find("Title").text)
 
     ff = root.findall("question")
     num = len(ff)
     result_saver = ResultSaver(num, root.find("TextId").text)
     right, total = 0, 0
-    for i in ff:
-        total += 1
-        quest_number = (int(i.find('Number').text) - 1) % num + 1
+    try:
+        for i in ff:
+            total += 1
+            quest_number = (int(i.find('Number').text) - 1) % num + 1
 
-        quest = i.find('Question').text
-        tx = f"{quest_number}/{num}) {quest}"
-        reading = Thread(target=read_text_aloud, args=(quest,))
-        reading.start()
-        fin_pic(tx)
-        pr(tx)
-        input()
-        kill_reading_aloud()
-        reading.join()
+            quest = i.find('Question').text
+            tx = f"{quest_number}/{num}) {quest}"
+            reading = Thread(target=read_text_aloud, args=(quest,))
+            reading.start()
+            fin_pic(tx)
+            pr(tx)
+            mid_input()
+            kill_reading_aloud()
+            reading.join()
 
-        answer = i.find('Answer').text
-        fin_pic(answer)
-        pr(f"Ответ: {answer}")
+            answer = i.find('Answer').text
+            fin_pic(answer)
+            pr(f"Ответ: {answer}")
 
-        pass_criteria = i.find('PassCriteria').text
-        fin_pic(pass_criteria)
-        pr(f"Зачёт: {pass_criteria}")
+            pass_criteria = i.find('PassCriteria').text
+            fin_pic(pass_criteria)
+            pr(f"Зачёт: {pass_criteria}")
 
-        com = f"Комментарий: {i.find('Comments').text}"
-        fin_pic(com)
-        pr(com)
+            com = f"Комментарий: {i.find('Comments').text}"
+            fin_pic(com)
+            pr(com)
 
-        pr(f"Автор: {i.find('Authors').text}")
-        result_saver.set_author(quest_number, " ".join(i.find("Authors").text.split(' ', 2)[:2]))
-        
-        saved = False
-        while True:
-            if not saved:
-                inp = my_input("Сохранить или взят> ")
-                if inp == "save" or ("сохранить".startswith(inp) and len(inp) > 1) or inp == "ыфму":
-                    tmp_src = src
-                    if tmp_src[-1] == ".":
-                        tmp_src = tmp_src[:-1]
-                    if tmp_src[-1] != "/":
-                        tmp_src += "/"
-                    z = tmp_src + i.find("Number").text
-                    with open(GOOD_FILE, "a+") as fo:
-                        fo.write(z + ";")
-                    print(z)
-                    saved = True
-                    continue
-            else:
-                inp = my_input("Взят> ")
-            if inp in ("0", "1"):
-                result_saver.set_answer(quest_number, int(inp))
-                if inp == "1":
-                    right += 1
-                break
+            pr(f"Автор: {i.find('Authors').text}")
+            result_saver.set_author(quest_number, " ".join(i.find("Authors").text.split(' ', 2)[:2]))
+            
+            saved = False
+            while True:
+                if not saved:
+                    inp = key_input("Сохранить или взят> ")
+                    if inp == "save" or ("сохранить".startswith(inp) and len(inp) > 1) or inp == "ыфму":
+                        tmp_src = src
+                        if tmp_src[-1] == ".":
+                            tmp_src = tmp_src[:-1]
+                        if tmp_src[-1] != "/":
+                            tmp_src += "/"
+                        z = tmp_src + i.find("Number").text
+                        with open(GOOD_FILE, "a+") as fo:
+                            fo.write(z + ";")
+                        print(z)
+                        saved = True
+                        continue
+                else:
+                    inp = key_input("Взят> ")
+                if inp in ("0", "1"):
+                    result_saver.set_answer(quest_number, int(inp))
+                    if inp == "1":
+                        right += 1
+                    break
 
-        print(f"Взято: {right}/{total}\n")
+            print(f"Взято: {right}/{total}\n")
 
-    print(result_saver.to_json())
-    result_saver.write()
-    input("Игра окончена")
-    return get_next_tour()
+        print(result_saver.to_json())
+        result_saver.write()
+        result_saver.write_unfinished()
+        mid_input("Игра окончена")
+        return get_next_tour()
+    except Exception as e:
+        print(e)
+        result_saver.write_unfinished()
+        # raise e
+        return None
+    except KeyboardInterrupt as ki:
+        result_saver.write_unfinished()
+        raise ki
+
 
 
 if __name__ == '__main__':
@@ -418,24 +478,38 @@ if __name__ == '__main__':
         check_connection = Thread(target=update_intrenet_on)
         check_connection.start()
         next_tour = None
+        
+        if os_path.exists(UNFINISHED_FILE):
+            with open(UNFINISHED_FILE, "r") as fi:
+                inp = fi.read()
+            pack = inp.split('\n', 1)[0]
+            if AUTOPLAY_UNFINSHED or inp == "" or input(f"Press ENTER if you want to continue playing {pack}: ") == "":
+                Reader(inp)
+            else:
+                Reader("")
+        else:
+            Reader("")
+
         while True:
             s = None
             if next_tour is None:
-                pac = my_input("Package: ")
+                pac = key_input("Package: ")
             else:
                 pac = next_tour
             if pac != "":
                 s = pac
             next_tour = read_page(s, s)
             if next_tour is not None:
-                if my_input(f"Press ENTER to play '{next_tour}': ") != "":
+                if key_input(f"Press ENTER to play '{next_tour}': ") != "":
                     next_tour = None
-            if next_tour is None and my_input("Press ENTER to play one more time: ") != "":
+            if next_tour is None and key_input("Press ENTER to play one more time: ") != "":
                 break
             print("\n\n")
     except Exception as e:
         print_exc()
-        input(f"ERROR: {e}")
+        mid_input(f"ERROR: {e}")
+    except KeyboardInterrupt:
+        pass
     finally:
         RUNNING = False
         kill_reading_aloud()
@@ -465,12 +539,13 @@ if __name__ == '__main__':
 # DONE: Added opening images in default browser
 # DONE: Added reading questions aloud (only on Windows)
 # DONE: Fixed issue with finding pics in None
-# DONE: Added my_input to read user keys
+# DONE: Added key_input to read user keys
 # DONE: Added muting and unmiuting reading aloud (between questions)
 # DONE: Added interruptions to reading questions aloud
-# TODO: add exception handler when there is no such package
-# TODO: add saving unfinished game after exception (to paste the result and skip played questions)
-# TODO: add reading and auto-playing from saved unfinished game
+# DONE: Added exception handler when there is no such package
+# DONE: Added saving unfinished game after exception (to paste the result and skip played questions)
+# DONE: Added reading and auto-playing from saved unfinished game
 # TODO: remove opening images while auto-playing
+# TODO: add processing handouts while reading (can be used in game mode) (intvor_19.1_u.4/45, ovsch10.2-18, ...)
 # TODO: add game mode (timer, no text, only reading aloud and pictures)
 # TODO: add duplets and blitz to reading
