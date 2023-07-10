@@ -118,7 +118,7 @@ class ResultSaver:
 
     @write_time
     def set_author(self, num: int, author: str) -> None:
-        while not('а' <= author[-1] <= 'я'):
+        while len(author) > 0 and not('а' <= author[-1] <= 'я'):
             author = author[:-1]
         if 0 < num <= self._number:
             self._authors[author] = self._authors.get(author, 0) | (1 << (num - 1))
@@ -428,7 +428,7 @@ if __name__ == '__main__':
                 s = pac
             next_tour = read_page(s, s)
             if next_tour is not None:
-                if my_input(f"Press ENTER to play '{next_tour}'") != "":
+                if my_input(f"Press ENTER to play '{next_tour}': ") != "":
                     next_tour = None
             if next_tour is None and my_input("Press ENTER to play one more time: ") != "":
                 break
@@ -469,4 +469,8 @@ if __name__ == '__main__':
 # DONE: Added muting and unmiuting reading aloud (between questions)
 # DONE: Added interruptions to reading questions aloud
 # TODO: add exception handler when there is no such package
+# TODO: add saving unfinished game after exception (to paste the result and skip played questions)
+# TODO: add reading and auto-playing from saved unfinished game
+# TODO: remove opening images while auto-playing
+# TODO: add game mode (timer, no text, only reading aloud and pictures)
 # TODO: add duplets and blitz to reading
