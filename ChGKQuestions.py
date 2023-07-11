@@ -95,14 +95,17 @@ class Reader:
 
     def input(self, txt: str = "") -> str:
         global IS_READ_ALOUD
-        if self._pos + 1 < len(self._lines):
+        if self.is_auto_playing():
             result = self._lines[self._pos]
             print(f"{txt}{result}")
             self._pos += 1
-            if self._pos + 1 == len(self._lines):
+            if not self.is_auto_playing():
                 IS_READ_ALOUD = self._is_read_aloud
             return result
         return input(txt)
+
+    def is_auto_playing(self) -> bool:
+        return self._pos + 1 < len(self._lines)
 
     @classmethod
     def get_instance(cls):
@@ -122,7 +125,7 @@ def key_input(txt: str, **kwargs) -> str:
             IS_READ_ALOUD = False
             print("Reading aloud turned off")
         elif result in UNMUTE_KEYS:
-            if platform_system == SYSTEM_WINDOWS:
+            if CURRENT_SYSTEM == SYSTEM_WINDOWS:
                 IS_READ_ALOUD = True
                 print("Reading aloud turned on")
         else:
@@ -184,7 +187,7 @@ def upd(sss):
     return sss.replace("_", "=")
 
 
-def internet_on():
+def is_internet_on():
     return INTERNET_ON
 
 
@@ -211,13 +214,13 @@ def fin_pic(sss):
         clipboard.copy(val)
         print(f"{prefix}{val} is copied to buffer")
 
-    if sss is None:
+    if sss is None or Reader.get_instance().is_auto_playing():
         return
 
     q = re.findall(RE_SITE, sss)
     q2 = re.findall(RE_DB_SITE, sss)
     if (q is not None and len(q) > 0) or (q2 is not None and len(q2) > 0):
-        int_on = internet_on()
+        int_on = is_internet_on()
         for j in q:
             if int_on:
                 try:
@@ -261,30 +264,27 @@ def create_table(name, arr):
 
 @write_time
 def read_local(src):
-    cur_dir = path.dirname(path.abspath(__file__))
-    par_dir = path.dirname(cur_dir)
-    lcl_src = path.join(par_dir, "ChGKWordGetter", "src", "%s.xml")
-    print(lcl_src % src)
-    if not path.isfile(lcl_src % src):
+    lcl_src = LOCAL_LIBRARY_FILE % src
+    print(lcl_src)
+    if not path.isfile(lcl_src):
         return DEFAULT_XML
-    with open(lcl_src % src, "r", encoding="utf-8") as fo:
+    with open(lcl_src, "r", encoding="utf-8") as fo:
         txt = fo.read()
     return txt
 
 
 @write_time
 def read_global(src):
-    url = 'https://db.chgk.info/tour/%s/xml'
-    print(url % src)
+    uri = 'https://db.chgk.info/tour/%s/xml'
+    print(uri % src)
     try:
-        req = requests.get(url % src, timeout=2)
+        req = requests.get(uri % src, timeout=2)
         return req.text
     except (requests.ConnectionError, requests.Timeout) as ex:
         return None
 
-
 def read_page(src=None, name=None):
-    if src[0] != "$" and not internet_on():
+    if src[0] != "$" and not is_internet_on():
         read_page("$" + src, "$" + name)
         return
     lcl = False
@@ -296,7 +296,7 @@ def read_page(src=None, name=None):
             src = src[1:]
             lcl = True
             name = src[1:]
-    if lcl:
+    if lcl or not is_internet_on():
         txt = read_local(src)
     else:
         txt = read_global(src)
@@ -331,6 +331,8 @@ def read_page(src=None, name=None):
 
 
 def read_questions(root, src):
+    parent_xml = None
+
     # @write_time
     def pr(st):
         si = 80
@@ -356,13 +358,20 @@ def read_questions(root, src):
             p = nx + 1
 
     @write_time
+    def get_parent_xml(parent_src):
+        nonlocal parent_xml
+        if parent_xml is None:
+            if is_internet_on():
+                txt = read_global(parent_src)
+            else:
+                txt = read_local(parent_src)
+            parent_xml = Et.fromstring(txt)
+        return parent_xml
+
+    @write_time
     def get_parent_title():
         parent_src = src.rsplit(".", 1)[0]
-        if INTERNET_ON:
-            xml_text = read_global(parent_src)
-        else:
-            xml_text = read_local(parent_src)
-        root = Et.fromstring(xml_text)
+        root = get_parent_xml(parent_src)
         title = next(root.iter("Title"), None)
         return title.text if title is not None else UNKNOWN_PACKAGE
 
@@ -372,20 +381,19 @@ def read_questions(root, src):
             return None
         parent_src, tour_num = src.rsplit(".", 1)
         tour_num = int(tour_num) + 1
-        if INTERNET_ON:
-            xml_text = read_global(parent_src)
-        else:
-            xml_text = read_local(parent_src)
-        root = Et.fromstring(xml_text)
+        root = get_parent_xml(parent_src)
         tours = root.findall("tour/Number")
         return f"{parent_src}.{tour_num}" if (tour_num) in [int(t.text) for t in tours] else None
 
 
     title = next(root.iter("Title"), None)
-    if title is None:
-        print("Error: Not found package with such name")
+    if title is None or title.text == UNKNOWN_PACKAGE:
+        if not is_internet_on:
+            print("Error: Internet is off and the package with such name wasn't found in the local library")
+        else:
+            print("Error: The package with such name wasn't found at https://db.chgk.info")
         return None
-    print("\n\t\t\t", get_parent_title(), root.find("Title").text)
+    print("\n\t\t\t", get_parent_title(), title.text)
 
     ff = root.findall("question")
     num = len(ff)
@@ -545,7 +553,7 @@ if __name__ == '__main__':
 # DONE: Added exception handler when there is no such package
 # DONE: Added saving unfinished game after exception (to paste the result and skip played questions)
 # DONE: Added reading and auto-playing from saved unfinished game
-# TODO: remove opening images while auto-playing
+# TODO: remove opening images while auto-playing (needs to be tested)
 # TODO: add processing handouts while reading (can be used in game mode) (intvor_19.1_u.4/45, ovsch10.2-18, ...)
 # TODO: add game mode (timer, no text, only reading aloud and pictures)
 # TODO: add duplets and blitz to reading
