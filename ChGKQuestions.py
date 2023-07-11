@@ -43,6 +43,12 @@ def update_intrenet_on():
             cnt = 0
         sleep(1)
 
+def get_handouts(txt: str):
+    return re.findall(RE_RAZDATOCHNYI_MATERIAL, txt) + re.findall(RE_RAZDATKA, txt)
+
+def has_pictures(txt: str) -> bool:
+    return len(re.findall(RE_SITE, txt)) + len(re.findall(RE_DB_SITE, txt)) > 0
+
 
 def read_text_aloud(txt: str):
     def _read_text(txt: str) -> None:
@@ -56,29 +62,20 @@ def read_text_aloud(txt: str):
     if not IS_READ_ALOUD:
         return
 
+    handouts = get_handouts(txt)
     txt = txt.replace("\r", "").replace("\n", " ").replace("\"", "\'").replace("«", "\'").replace("»", "\'")
+    txt = txt.replace("<раздатка>", "<").replace("</раздатка>", ">")
     res = []
     cnt = 0
-    b = False
     st = 0
-    razd = []
+    b = (len(handouts) > 0) or has_pictures(txt)
     for ind, c in enumerate(txt):
         if c in '([{<':
             cnt += 1
-            if cnt == 1:
-                st = ind
-            continue
         elif cnt == 0:
             res.append(c)
         elif c in '}])>':
             cnt -= 1
-            if cnt == 0:
-                mid = txt[st: ind].lower()
-                if txt.find("Ведущему", st, ind) == -1:
-                    b = True
-            continue
-        elif cnt == 1:
-            razd.append(c)
     _read_text(f'{"Внимание, в вопросе есть раздаточный материал!    " if b else ""}{"".join(res)}')
 
 
@@ -176,9 +173,12 @@ class ResultSaver:
 
     @write_time
     def write_unfinished(self) -> None:
+        if SUPPRESS_AUTOSAVE:
+            return
         if self._last == -1:
             res = ""
-        res = "\n".join([f"{self._name}\n"] + [f"{self._result >> i & 1}\n" for i in range(self._last)])
+        else:
+            res = "\n".join([f"{self._name}\n"] + [f"{self._result >> i & 1}\n" for i in range(self._last)])
         with open(UNFINISHED_FILE, "w") as fo:
             fo.write(res)
 
@@ -214,7 +214,7 @@ def fin_pic(sss):
         clipboard.copy(val)
         print(f"{prefix}{val} is copied to buffer")
 
-    if sss is None or Reader.get_instance().is_auto_playing():
+    if SUPPESS_PICS or sss is None or Reader.get_instance().is_auto_playing():
         return
 
     q = re.findall(RE_SITE, sss)
@@ -281,6 +281,8 @@ def read_global(src):
         req = requests.get(uri % src, timeout=2)
         return req.text
     except (requests.ConnectionError, requests.Timeout) as ex:
+        global INTERNET_ON
+        INTERNET_ON = False
         return None
 
 def read_page(src=None, name=None):
@@ -370,10 +372,8 @@ def read_questions(root, src):
 
     @write_time
     def get_parent_title():
-        parent_src = src.rsplit(".", 1)[0]
-        root = get_parent_xml(parent_src)
-        title = next(root.iter("Title"), None)
-        return title.text if title is not None else UNKNOWN_PACKAGE
+        parent = root.find("ParentTextId")
+        return parent.text if parent is not None else UNKNOWN_PACKAGE
 
     @write_time
     def get_next_tour():
@@ -493,6 +493,11 @@ if __name__ == '__main__':
             pack = inp.split('\n', 1)[0]
             if AUTOPLAY_UNFINSHED or inp == "" or input(f"Press ENTER if you want to continue playing {pack}: ") == "":
                 Reader(inp)
+                if AUTOPLAY_UNFINSHED:
+                    print("Looking for unfinished game...", end="", flush=True)
+                    from time import sleep
+                    sleep(1.3)
+                    print(end="\r\033[K")
             else:
                 Reader("")
         else:
@@ -553,7 +558,10 @@ if __name__ == '__main__':
 # DONE: Added exception handler when there is no such package
 # DONE: Added saving unfinished game after exception (to paste the result and skip played questions)
 # DONE: Added reading and auto-playing from saved unfinished game
-# TODO: remove opening images while auto-playing (needs to be tested)
-# TODO: add processing handouts while reading (can be used in game mode) (intvor_19.1_u.4/45, ovsch10.2-18, ...)
+# DONE: Removed opening images while auto-playing
+# DONE: Added processing handouts while reading (can be used in game mode) (intvor_19.1_u.4/45, ovsch10.2-18, ...)
+# TODO: add config class with all changeable (during run) configs ans save to stack
+# TODO: add replacing from transliteration in square brackets
+# TODO: add xml_loader with caching all loaded xmls (included parents)
 # TODO: add game mode (timer, no text, only reading aloud and pictures)
-# TODO: add duplets and blitz to reading
+# TODO: add duplets and blitz to reading and showing pictures (u20let.1/6)

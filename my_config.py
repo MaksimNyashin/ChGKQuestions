@@ -8,13 +8,22 @@ SYSTEM_WINDOWS = "Windows"
 SYSTEM_LINUX = "Linux"
 SYSTEM_MACOS = "Darwin"
 
+if CURRENT_SYSTEM == SYSTEM_WINDOWS:
+    import colorama
+    colorama.init()
+
 DEBUG = False
-MEASURE_TIME = True and DEBUG
+MEASURE_TIME = False and DEBUG
+SUPPRESS_AUTOSAVE = True and DEBUG
+SUPPESS_PICS = True and DEBUG
+
 IS_READ_ALOUD = False and CURRENT_SYSTEM == SYSTEM_WINDOWS
 AUTOPLAY_UNFINSHED = True
 
 RE_SITE = re_compile("(https?://[a-zA-Z\d./_-]*\.(png|jpg|jpeg|gif|bmp))", re_IGNORECASE)
 RE_DB_SITE = re_compile("pic:[ \n](\d+\.(png|jpg|jpeg|gif|bmp))", re_IGNORECASE)
+RE_RAZDATOCHNYI_MATERIAL = re_compile("\s*\[Раздаточный материал: (.+)\]")
+RE_RAZDATKA = re_compile("\s*<раздатка>(.+)<\/раздатка>")
 
 INTERNET_ON = False
 RUNNING = True
