@@ -3,7 +3,7 @@ from my_config import *
 import requests
 import xml.etree.ElementTree as Et
 from sqlite3 import connect
-from traceback import print_exc
+from traceback import format_exc
 from threading import Thread
 from os import path, system as os_system
 
@@ -22,7 +22,7 @@ def write_time(func):
         return_value = func(*args, **kwargs)
         end = time.time()
         if MEASURE_TIME:
-            print(f"[DEBUG]:    {func.__qualname__:<20}\t{end-start:.4f}s")
+            my_print(f"[DEBUG]:    {func.__qualname__:<20}\t{end-start:.4f}s")
         return return_value
 
     return wrapper
@@ -32,20 +32,29 @@ def update_intrenet_on():
     from time import sleep
     global INTERNET_ON, RUNNING
     cnt = SECONDS_PER_REQUEST - 1
-    while RUNNING:
-        cnt += 1
-        if cnt == SECONDS_PER_REQUEST:
-            if not FORCE_LOCAL():
-                try:
-                    req = requests.get("https://db.chgk.info", timeout=3)
-                    INTERNET_ON = True
-                except (requests.ConnectionError, requests.Timeout) as ex:
-                    INTERNET_ON = False
-            cnt = 0
-        sleep(1)
+    try:
+        while RUNNING:
+            cnt += 1
+            if cnt == SECONDS_PER_REQUEST:
+                if not FORCE_LOCAL():
+                    try:
+                        req = requests.get("https://db.chgk.info", timeout=3)
+                        INTERNET_ON = True
+                    except (requests.ConnectionError, requests.Timeout) as ex:
+                        INTERNET_ON = False
+                cnt = 0
+            sleep(1)
+    except Exception as e:
+        my_print(format_exc(), silent=True)
+        mid_input(f"ERROR: {e}")
+    except KeyboardInterrupt:
+        my_print("update_internet_on: Ctrl+C")
+        pass
+
 
 def get_handouts(txt: str):
     return re.findall(RE_RAZDATOCHNYI_MATERIAL, txt) + re.findall(RE_RAZDATKA, txt)
+
 
 def has_pictures(txt: str) -> bool:
     return len(re.findall(RE_SITE, txt)) + len(re.findall(RE_DB_SITE, txt)) > 0
@@ -53,7 +62,7 @@ def has_pictures(txt: str) -> bool:
 
 def read_text_aloud(txt: str):
     def _read_text(txt: str) -> None:
-        # print(txt)
+        # my_print(txt)
         # return
         readable_text = f'CreateObject("SAPI.SpVoice").Speak "{txt}"'
         with open(READ_ALOUD_FILE, "w") as fo:
@@ -63,49 +72,103 @@ def read_text_aloud(txt: str):
     if not IS_READ_ALOUD():
         return
 
-    handouts = get_handouts(txt)
-    txt = txt.replace("\r", "").replace("\n", " ").replace("\"", "\'").replace("«", "\'").replace("»", "\'")
-    txt = txt.replace("<раздатка>", "<").replace("</раздатка>", ">")
-    res = []
-    cnt = 0
-    st = 0
-    b = (len(handouts) > 0) or has_pictures(txt)
-    for ind, c in enumerate(txt):
-        if c in '([{<':
-            cnt += 1
-        elif cnt == 0:
-            res.append(c)
-        elif c in '}])>':
-            cnt -= 1
-    _read_text(f'{"Внимание, в вопросе есть раздаточный материал!    " if b else ""}{"".join(res)}')
+    try:
+        handouts = get_handouts(txt)
+        txt = txt.replace("\r", "").replace("\n", " ").replace("\"", "\'").replace("«", "\'").replace("»", "\'").replace("\u0301", "")
+        txt = txt.replace("<раздатка>", "<").replace("</раздатка>", ">")
+        res = []
+        cnt = 0
+        st = 0
+        b = (len(handouts) > 0) or has_pictures(txt)
+        for ind, c in enumerate(txt):
+            if c in '([{<':
+                cnt += 1
+            elif cnt == 0:
+                res.append(c)
+            elif c in '}])>':
+                cnt -= 1
+        _read_text(f'{"Внимание, в вопросе есть раздаточный материал!    " if b else ""}{"".join(res)}')
+    except Exception as e:
+        my_print(format_exc(), silent=True)
+        mid_input(f"ERROR: {e}")
+    except KeyboardInterrupt:
+        my_print("read_text_aloud: Ctrl+C")
+
+
+def init_testing():
+    with open(TMP_TESTS_FILE, "w"):
+        pass
+    if not TESTING:
+        return
+    from sys import argv
+    if len(argv) < 3:
+        raise IndexError("No test number found during launching testing mode")
+    add_layer()
+    AUTOPLAY_UNFINSHED(True)
+    FORCE_LOCAL(True)
+    IS_READ_ALOUD(False)
+    LOCAL_LIBRARY_FILE(TEST_SOURCE_FILE)
+    SUPPRESS_AUTOSAVE(True)
+    SUPPRESS_GOOD(True)
+    SUPPESS_PICS(True)
+    SUPPRESS_RESULTS(True)
+    UNFINISHED_FILE_READ(TEST_FILE % argv[2])
+    WRITE_TESTS_OUTPUT(True)
+    # print("testing", set(C.get_instance().__dict__.keys()) - set(C.get_instance()._history[-1].keys()))
+
+def init_debug():
+    if not DEBUG:
+        return
+    add_layer()
+    AUTOPLAY_UNFINSHED(True)
+    FORCE_LOCAL(True)
+    IS_READ_ALOUD(False)
+    SUPPRESS_AUTOSAVE(True)
+    SUPPRESS_GOOD(True)
+    SUPPESS_PICS(True)
+    SUPPRESS_RESULTS(True)
+    WRITE_TESTS_OUTPUT(True)
+    # print("debug", set(C.get_instance().__dict__.keys()) - set(C.get_instance()._history[-1].keys()))
 
 
 class Reader:
-    _instance=None
+    _instances=[]
 
     def __init__(self, lines: str):
         self._pos = 0
         self._lines = lines.split("\n")
         add_layer()
         IS_READ_ALOUD(False)
-        Reader._instance = self
+        Reader._instances.append(self)
+        with open(COMMAND_HISTORY_LOG_FILE, "w"):
+            pass
 
     def input(self, txt: str = "") -> str:
+        res = self._input(txt)
+        with open(COMMAND_HISTORY_LOG_FILE, "a", encoding="utf-8") as fo:
+            fo.write(f"{res}\n")
+        return res
+
+    def _input(self, txt) -> str:
         if self.is_auto_playing():
             result = self._lines[self._pos]
-            print(f"{txt}{result}")
+            my_print(f"{txt}{result}")
             self._pos += 1
             if not self.is_auto_playing():
                 pop_layer()
             return result
-        return input(txt)
+        inp_res = input(txt)
+        my_print(f"{txt}{inp_res}", silent=True)
+        return inp_res
 
     def is_auto_playing(self) -> bool:
         return self._pos + 1 < len(self._lines)
 
     @classmethod
     def get_instance(cls):
-        return cls._instance
+        if len(cls._instances) == 0:
+            cls("\n" * 1000)
+        return cls._instances[-1]
 
 
 def mid_input(txt: str = "") -> str:
@@ -118,13 +181,22 @@ def key_input(txt: str, **kwargs) -> str:
         result = res.lower()
         if result in MUTE_KEYS:
             IS_READ_ALOUD(False)
-            print("Reading aloud turned off")
+            my_print("Reading aloud turned off")
         elif result in UNMUTE_KEYS:
             if CURRENT_SYSTEM == SYSTEM_WINDOWS:
                 IS_READ_ALOUD(True)
-                print("Reading aloud turned on")
+                my_print("Reading aloud turned on")
         else:
             return res
+
+def my_print(*args, **kwargs):
+    if kwargs.get("silent", False) != True:
+        print(*args, **kwargs)
+    if not WRITE_TESTS_OUTPUT():
+        return
+    result = kwargs.get("sep", ' ').join(str(arg) for arg in args) + kwargs.get("end", '\n')
+    with open(TMP_TESTS_FILE, "a", encoding="utf-8") as fo:
+        fo.write(result)
 
 
 def run_system_command(cmnd):
@@ -204,14 +276,14 @@ def fin_pic(sss):
             com2 = f"{browser[0]} {val}"
             res = run_system_command(com2)
             if res == 0:
-                print(f"{prefix}{val} is opened in {browser[1]}")
+                my_print(f"{prefix}{val} is opened in {browser[1]}")
                 return True
         return False
 
     def copy_to_buffer(val):
         import clipboard
         clipboard.copy(val)
-        print(f"{prefix}{val} is copied to buffer")
+        my_print(f"{prefix}{val} is copied to buffer")
 
     if SUPPESS_PICS() or sss is None or Reader.get_instance().is_auto_playing():
         return
@@ -243,10 +315,11 @@ def fin_pic(sss):
 
 
 def create_table(name, arr):
+    return
     name = upd(name)
     cursor.execute("""SELECT name FROM sqlite_master WHERE type='table' AND name='%s'""" % name)
     qq = cursor.fetchone()
-    print(name, end=": ")
+    my_print(name, end=": ")
     if qq is None:
         sss = """CREATE TABLE IF NOT EXISTS '%s'(id int, link text)""" % name
         cursor.execute(sss)
@@ -256,15 +329,15 @@ def create_table(name, arr):
         #     conn.commit()
         cursor.execute("""INSERT INTO '%s' VALUES %s;""" % (name, zz))
         conn.commit()
-        print("added")
+        my_print("added")
     else:
-        print("already exists")
+        my_print("already exists")
 
 
 @write_time
 def read_local(src):
     lcl_src = LOCAL_LIBRARY_FILE() % src
-    print(lcl_src)
+    my_print(lcl_src)
     if not path.isfile(lcl_src):
         return DEFAULT_XML
     with open(lcl_src, "r", encoding="utf-8") as fo:
@@ -275,7 +348,7 @@ def read_local(src):
 @write_time
 def read_global(src):
     uri = 'https://db.chgk.info/tour/%s/xml'
-    print(uri % src)
+    my_print(uri % src)
     try:
         req = requests.get(uri % src, timeout=2)
         return req.text
@@ -352,9 +425,9 @@ def read_questions(root, src):
             if nxx != -1:
                 nx = nxx
             if nx != -1 and p + si < len(st):
-                print(st[p: nx])
+                my_print(st[p: nx])
             else:
-                print(st[p:])
+                my_print(st[p:])
                 break
             p = nx + 1
 
@@ -388,11 +461,11 @@ def read_questions(root, src):
     title = next(root.iter("Title"), None)
     if title is None or title.text == UNKNOWN_PACKAGE:
         if not is_internet_on:
-            print("Error: Internet is off and the package with such name wasn't found in the local library")
+            my_print("Error: Internet is off and the package with such name wasn't found in the local library")
         else:
-            print("Error: The package with such name wasn't found at https://db.chgk.info")
+            my_print("Error: The package with such name wasn't found at https://db.chgk.info")
         return None
-    print("\n\t\t\t", get_parent_title(), title.text)
+    my_print("\n\t\t\t", get_parent_title(), title.text)
 
     ff = root.findall("question")
     num = len(ff)
@@ -442,7 +515,7 @@ def read_questions(root, src):
                         if not SUPPRESS_GOOD():
                             with open(GOOD_FILE, "a+") as fo:
                                 fo.write(z + ";")
-                        print(z)
+                        my_print(f"Saved as {z}")
                         saved = True
                         continue
                 else:
@@ -453,15 +526,15 @@ def read_questions(root, src):
                         right += 1
                     break
 
-            print(f"Взято: {right}/{total}\n")
+            my_print(f"Взято: {right}/{total}\n")
 
-        print(result_saver.to_json())
+        my_print(result_saver.to_json())
         result_saver.write()
         result_saver.write_unfinished()
         mid_input("Игра окончена")
         return get_next_tour()
     except Exception as e:
-        print(e)
+        my_print(e)
         result_saver.write_unfinished()
         # raise e
         return None
@@ -483,6 +556,9 @@ if __name__ == '__main__':
     # s = "mkm17.6"
 
     try:
+        check_connection = None
+        init_testing()
+        init_debug()
         check_connection = Thread(target=update_intrenet_on)
         check_connection.start()
         next_tour = None
@@ -491,13 +567,14 @@ if __name__ == '__main__':
             with open(UNFINISHED_FILE_READ(), "r") as fi:
                 inp = fi.read()
             pack = inp.split('\n', 1)[0]
-            if AUTOPLAY_UNFINSHED or inp == "" or input(f"Press ENTER if you want to continue playing {pack}: ") == "":
+            if AUTOPLAY_UNFINSHED() or inp == "" or input(f"Press ENTER if you want to continue playing {pack}: ") == "":
                 Reader(inp)
-                if AUTOPLAY_UNFINSHED:
-                    print("Looking for unfinished game...", end="", flush=True)
-                    from time import sleep
-                    sleep(1.3)
-                    print(end="\r\033[K")
+                if AUTOPLAY_UNFINSHED():
+                    if not FORCE_LOCAL():
+                        my_print("Looking for unfinished game...", end="", flush=True)
+                        from time import sleep
+                        sleep(1.3)
+                        my_print(end="\r\033[K")
             else:
                 Reader("")
         else:
@@ -517,16 +594,17 @@ if __name__ == '__main__':
                     next_tour = None
             if next_tour is None and key_input("Press ENTER to play one more time: ") != "":
                 break
-            print("\n\n")
+            my_print("\n\n")
     except Exception as e:
-        print_exc()
+        my_print(format_exc(), silent=True)
         mid_input(f"ERROR: {e}")
     except KeyboardInterrupt:
-        pass
+        my_print("Ctrl+C")
     finally:
         RUNNING = False
         kill_reading_aloud()
-        check_connection.join()
+        if check_connection is not None:
+            check_connection.join()
     # read_page("ovsch20.3_u.1", "ovsch20.3_u.1")
     # cursor.execute("""SELECT * FROM links""")
     # print(cursor.fetchall())
@@ -561,10 +639,11 @@ if __name__ == '__main__':
 # DONE: Removed opening images while auto-playing
 # DONE: Added processing handouts while reading (can be used in game mode) (intvor_19.1_u.4/45, ovsch10.2-18, ...)
 # DONE: Added config class with all changeable (during run) configs ans save to stack
-# TODO: add launch with keys (for testing, debug, game mods)
-# TODO: add logging
-# TODO: add testing
+# DONE: Added command logging
+# DONE: Added launch with keys (for testing, debug, game mods)
+# DONE: Added testing mode
 # TODO: add replacing from transliteration in square brackets
+# TODO: add testing
 # TODO: add xml_loader with caching all loaded xmls (included parents)
 # TODO: add game mode (timer, no text, only reading aloud and pictures)
 # TODO: add duplets and blitz to reading and showing pictures (u20let.1/6)

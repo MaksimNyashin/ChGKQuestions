@@ -2,9 +2,11 @@ from re import compile as re_compile, IGNORECASE as re_IGNORECASE
 from os import path as os_path, mkdir as os_mkdir
 from platform import system as platform_system
 from typing import Optional
+from sys import argv as sys_argv
 
-DEBUG = False
-TESTING = False
+DEBUG = len(sys_argv) > 1 and sys_argv[1] in ("-d", "-D")
+TESTING = len(sys_argv) > 1 and sys_argv[1] in ("-t", "-T")
+print(f"{DEBUG=}, {TESTING=}")
 
 class _Config:
     _instances = []
@@ -46,12 +48,16 @@ class _Config:
     @classmethod
     def pop_layer(cls):
         cls.get_instance()._pop_layer()
-
+C=_Config
 
 def name_wrap(func):
     def wrapper(*args, **kwargs):
         return func(func.__name__, *args, **kwargs)
     return wrapper
+
+@name_wrap
+def AUTOPLAY_UNFINSHED(name, new_val: Optional[bool] = None):
+    return _Config.process(name, new_val)
 
 @name_wrap
 def FORCE_LOCAL(name, new_val: Optional[bool] = None):
@@ -85,6 +91,9 @@ def SUPPRESS_RESULTS(name, new_val: Optional[bool] = None):
 def UNFINISHED_FILE_READ(name, new_val: Optional[str] = None):
     return _Config.process(name, new_val)
 
+@name_wrap
+def WRITE_TESTS_OUTPUT(name, new_val: Optional[bool] = None):
+    return _Config.process(name, new_val)
 
 def add_layer():
     _Config.add_layer()
@@ -105,14 +114,15 @@ if CURRENT_SYSTEM == SYSTEM_WINDOWS:
     colorama.init()
 
 MEASURE_TIME = False and DEBUG
-FORCE_LOCAL(True)
-SUPPRESS_AUTOSAVE(True)
-SUPPRESS_GOOD(True)
-SUPPESS_PICS(True)
-SUPPRESS_RESULTS(True)
+FORCE_LOCAL(False)
+SUPPRESS_AUTOSAVE(False)
+SUPPRESS_GOOD(False)
+SUPPESS_PICS(False)
+SUPPRESS_RESULTS(False)
 
 IS_READ_ALOUD(False)
-AUTOPLAY_UNFINSHED = True
+AUTOPLAY_UNFINSHED(True)
+WRITE_TESTS_OUTPUT(True)
 
 RE_SITE = re_compile("(https?://[a-zA-Z\d./_-]*\.(png|jpg|jpeg|gif|bmp))", re_IGNORECASE)
 RE_DB_SITE = re_compile("pic:[ \n](\d+\.(png|jpg|jpeg|gif|bmp))", re_IGNORECASE)
@@ -126,14 +136,19 @@ SECONDS_PER_REQUEST = 15
 CURRENT_DIR = os_path.dirname(os_path.abspath(__file__))
 LOCAL_LIBRARY_DIR = os_path.join(os_path.dirname(CURRENT_DIR), "ChGKWordGetter", "src")
 RESULT_DIR = os_path.join(CURRENT_DIR, "results")
+TESTS_DIR = os_path.join(CURRENT_DIR, "tests")
+TESTS_SRC_DIR = os_path.join(TESTS_DIR, "src")
 TMP_DIR = os_path.join(CURRENT_DIR, "tmp")
-TESTS_DIR = os_path.join(TMP_DIR, "tests")
-FOLDERS_TO_CREATE = (RESULT_DIR, TMP_DIR)
+TMP_TESTS_DIR = os_path.join(TMP_DIR, "tests")
+FOLDERS_TO_CREATE = (RESULT_DIR, TMP_DIR, TESTS_DIR, TMP_TESTS_DIR, TESTS_SRC_DIR)
 
+COMMAND_HISTORY_LOG_FILE = os_path.join(TMP_DIR, "command_history.log")
 GOOD_FILE = os_path.join(CURRENT_DIR, "good.txt")
 LOCAL_LIBRARY_FILE(os_path.join(LOCAL_LIBRARY_DIR, "%s.xml"))
-COMMAND_HISTORY_LOG_FILE = os_path.join(TMP_DIR, "command_history.log")
 READ_ALOUD_FILE = os_path.join(TMP_DIR, "read.vbs")
+TEST_FILE = os_path.join(TESTS_DIR, "%s.tst")
+TEST_SOURCE_FILE = os_path.join(TESTS_SRC_DIR, "%s.xml")
+TMP_TESTS_FILE = os_path.join(TMP_TESTS_DIR, "test.result")
 UNFINISHED_FILE_READ(os_path.join(TMP_DIR, "unfinished.txt"))
 UNFINISHED_FILE_WRITE = os_path.join(TMP_DIR, "unfinished.txt")
 

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tournament>
+<Title>Тест</Title>
+<TextId>_test</TextId>
+<ParentTextId>Test</ParentTextId>
+
+
+<question>
+<QuestionId>919257</QuestionId>
+<ParentId>54411</ParentId>
+<Number>1</Number>
+<Type>Ч</Type>
+<TypeNum>1</TypeNum>
+<TextId>u20let.1-6</TextId>
+<Question>Вопрос-дуплет. Два вопроса по 30 секунд обсуждения на каждый. Перед вами две работы из конкурса альтернативной книжной обложки. (pic: 20110403.jpg) 1. Фрагмент обложки какого произведения мы вам раздали? (pic: 20110404.jpg) 2. Обложку какого произведения мы вам раздали?</Question>
+<Answer> 1. "Алиса в Стране чудес". 2. "1984".</Answer>
+<PassCriteria/>
+<Authors>Эдуард Голуб (Киев)</Authors>
+<Sources>http://www.50watts.com/1542390/Polish-Book-Cover-Contest-Winners</Sources>
+<Comments> 1. Платье в виде мухомора как бы намекает на галлюцинаторный бред, подобие которого пережила Алиса. 2. На вас смотрит аллегорическое воплощение Большого Брата.</Comments>
+<Rating/>
+<RatingNumber/>
+<Complexity/>
+<Topic/>
+<ProcessedBySearch/>
+<parent_text_id>u20let.1</parent_text_id>
+<ParentTextId>u20let.1</ParentTextId>
+<Notices> </Notices>
+</question>
+
+<question>
+<QuestionId>1062883</QuestionId>
+<ParentId>62374</ParentId>
+<Number>1</Number>
+<Type>Ч</Type>
+<TypeNum>2</TypeNum>
+<TextId>ovsch10.2-18</TextId>
+<Question>   &lt;раздатка&gt;
+   Phytelephas
+   &lt;/раздатка&gt;
+   Крупные и твердые семена пальм рода Phytelephas [фителЕфас] называют
+растительной ЕЮ. Назовите ЕЕ.</Question>
+<Answer>Слоновая кость.</Answer>
+<PassCriteria/>
+<Authors>Юрий Выменец (Санкт-Петербург)</Authors>
+<Sources>   1. http://be.sci-lib.com/article085805.html
+   2. http://bse.sci-lib.com/article116449.html
+   3. http://en.wikipedia.org/wiki/Phytelephas</Sources>
+<Comments>Эти семена могут использоваться вместо слоновой кости. Phytelephas и
+значит &quot;растение-слон&quot;.</Comments>
+<Rating/>
+<RatingNumber/>
+<Complexity/>
+<Topic/>
+<ProcessedBySearch/>
+<parent_text_id/>
+<ParentTextId>ovsch10.2</ParentTextId>
+<Notices>
+</Notices>
+</question>
+
+<question>
+<QuestionId>1232988</QuestionId>
+<ParentId>74278</ParentId>
+<Number>3</Number>
+<Type>Ч</Type>
+<TypeNum>0</TypeNum>
+<TextId>intvor_19.1_u.4-45</TextId>
+<Question>[Раздаточный материал: «Действительно, немцы, плохо знавшие русский язык, не понимали команд и в результате оказывались на фронте в трудном положении.» «Всего планировалось поставить под ружьё целую армаду, невиданную доселе пленную армию для Карельского фронта...» ] Перед вами две немного измененные цитаты из статьи Юрия Канева. Напишите в исходном виде два слова, в каждом из которых мы заменили одну букву.</Question>
+<Answer>ненцы, оленную.</Answer>
+<PassCriteria> </PassCriteria>
+<Authors>Александр Ермишкин.</Authors>
+<Sources>http://www.nexplorer.ru/news__12277.htm.</Sources>
+<Comments>оленно-транспортные батальоны были сформированы в ноябре 1941 года для 14-ой армии Карельского фронта, действовавшей на Мурманском направлении. В условиях крайнего севера, холода и бездорожья олени имели огромное преимущество перед лошадьми и автомобилями. Многие погонщики, представители народностей крайнего севера, не знали русского языка, что существенно осложняло процесс коммуникации.</Comments>
+<Rating/>
+<RatingNumber/>
+<Complexity/>
+<Topic/>
+<ProcessedBySearch/>
+<parent_text_id/>
+<ParentTextId>intvor_19.1_u.4</ParentTextId>
+<Notices> </Notices>
+</question>
+
+
+</tournament>

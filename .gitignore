@@ -5,13 +5,14 @@ db_play.py
 getGood.py
 good_quests.txt
 *.xml
+*.json
 test.txt
-reading_aloud/
 *__pycache__/
 tmp/
 package_by_author/
 good.txt
 results/
+experiments/
 
-duplets/
 get_copy_text/
+!tests/src/*.xml
