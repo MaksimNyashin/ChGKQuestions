@@ -35,11 +35,12 @@ def update_intrenet_on():
     while RUNNING:
         cnt += 1
         if cnt == SECONDS_PER_REQUEST:
-            try:
-                req = requests.get("https://db.chgk.info", timeout=3)
-                INTERNET_ON = True
-            except (requests.ConnectionError, requests.Timeout) as ex:
-                INTERNET_ON = False
+            if not FORCE_LOCAL():
+                try:
+                    req = requests.get("https://db.chgk.info", timeout=3)
+                    INTERNET_ON = True
+                except (requests.ConnectionError, requests.Timeout) as ex:
+                    INTERNET_ON = False
             cnt = 0
         sleep(1)
 
@@ -59,7 +60,7 @@ def read_text_aloud(txt: str):
             fo.write(readable_text)
         os_system(READ_ALOUD_FILE)
 
-    if not IS_READ_ALOUD:
+    if not IS_READ_ALOUD():
         return
 
     handouts = get_handouts(txt)
@@ -83,21 +84,19 @@ class Reader:
     _instance=None
 
     def __init__(self, lines: str):
-        global IS_READ_ALOUD
         self._pos = 0
         self._lines = lines.split("\n")
-        self._is_read_aloud = IS_READ_ALOUD
-        IS_READ_ALOUD = False
+        add_layer()
+        IS_READ_ALOUD(False)
         Reader._instance = self
 
     def input(self, txt: str = "") -> str:
-        global IS_READ_ALOUD
         if self.is_auto_playing():
             result = self._lines[self._pos]
             print(f"{txt}{result}")
             self._pos += 1
             if not self.is_auto_playing():
-                IS_READ_ALOUD = self._is_read_aloud
+                pop_layer()
             return result
         return input(txt)
 
@@ -114,16 +113,15 @@ def mid_input(txt: str = "") -> str:
 
 
 def key_input(txt: str, **kwargs) -> str:
-    global IS_READ_ALOUD
     while True:
         res = mid_input(f"-> {txt}")
         result = res.lower()
         if result in MUTE_KEYS:
-            IS_READ_ALOUD = False
+            IS_READ_ALOUD(False)
             print("Reading aloud turned off")
         elif result in UNMUTE_KEYS:
             if CURRENT_SYSTEM == SYSTEM_WINDOWS:
-                IS_READ_ALOUD = True
+                IS_READ_ALOUD(True)
                 print("Reading aloud turned on")
         else:
             return res
@@ -167,19 +165,20 @@ class ResultSaver:
 
     @write_time
     def write(self) -> None:
-        with open(path.join(RESULT_DIR, f"{self._name}.json"), "w+") as fo:
-            fo.write(self.to_json())
+        if not SUPPRESS_RESULTS():
+            with open(path.join(RESULT_DIR, f"{self._name}.json"), "w+") as fo:
+                fo.write(self.to_json())
         self._last = -1
 
     @write_time
     def write_unfinished(self) -> None:
-        if SUPPRESS_AUTOSAVE:
+        if SUPPRESS_AUTOSAVE():
             return
         if self._last == -1:
             res = ""
         else:
             res = "\n".join([f"{self._name}\n"] + [f"{self._result >> i & 1}\n" for i in range(self._last)])
-        with open(UNFINISHED_FILE, "w") as fo:
+        with open(UNFINISHED_FILE_WRITE, "w") as fo:
             fo.write(res)
 
 
@@ -188,7 +187,7 @@ def upd(sss):
 
 
 def is_internet_on():
-    return INTERNET_ON
+    return INTERNET_ON and not FORCE_LOCAL()
 
 
 @write_time
@@ -214,7 +213,7 @@ def fin_pic(sss):
         clipboard.copy(val)
         print(f"{prefix}{val} is copied to buffer")
 
-    if SUPPESS_PICS or sss is None or Reader.get_instance().is_auto_playing():
+    if SUPPESS_PICS() or sss is None or Reader.get_instance().is_auto_playing():
         return
 
     q = re.findall(RE_SITE, sss)
@@ -264,7 +263,7 @@ def create_table(name, arr):
 
 @write_time
 def read_local(src):
-    lcl_src = LOCAL_LIBRARY_FILE % src
+    lcl_src = LOCAL_LIBRARY_FILE() % src
     print(lcl_src)
     if not path.isfile(lcl_src):
         return DEFAULT_XML
@@ -440,8 +439,9 @@ def read_questions(root, src):
                         if tmp_src[-1] != "/":
                             tmp_src += "/"
                         z = tmp_src + i.find("Number").text
-                        with open(GOOD_FILE, "a+") as fo:
-                            fo.write(z + ";")
+                        if not SUPPRESS_GOOD():
+                            with open(GOOD_FILE, "a+") as fo:
+                                fo.write(z + ";")
                         print(z)
                         saved = True
                         continue
@@ -487,8 +487,8 @@ if __name__ == '__main__':
         check_connection.start()
         next_tour = None
         
-        if os_path.exists(UNFINISHED_FILE):
-            with open(UNFINISHED_FILE, "r") as fi:
+        if os_path.exists(UNFINISHED_FILE_READ()):
+            with open(UNFINISHED_FILE_READ(), "r") as fi:
                 inp = fi.read()
             pack = inp.split('\n', 1)[0]
             if AUTOPLAY_UNFINSHED or inp == "" or input(f"Press ENTER if you want to continue playing {pack}: ") == "":
@@ -560,7 +560,10 @@ if __name__ == '__main__':
 # DONE: Added reading and auto-playing from saved unfinished game
 # DONE: Removed opening images while auto-playing
 # DONE: Added processing handouts while reading (can be used in game mode) (intvor_19.1_u.4/45, ovsch10.2-18, ...)
-# TODO: add config class with all changeable (during run) configs ans save to stack
+# DONE: Added config class with all changeable (during run) configs ans save to stack
+# TODO: add launch with keys (for testing, debug, game mods)
+# TODO: add logging
+# TODO: add testing
 # TODO: add replacing from transliteration in square brackets
 # TODO: add xml_loader with caching all loaded xmls (included parents)
 # TODO: add game mode (timer, no text, only reading aloud and pictures)
