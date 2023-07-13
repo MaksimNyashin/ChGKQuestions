@@ -38,7 +38,7 @@ def update_intrenet_on():
             if cnt == SECONDS_PER_REQUEST:
                 if not FORCE_LOCAL():
                     try:
-                        req = requests.get("https://db.chgk.info", timeout=3)
+                        req = requests.get(DB_CHGK, timeout=3)
                         INTERNET_ON = True
                     except (requests.ConnectionError, requests.Timeout) as ex:
                         INTERNET_ON = False
@@ -302,7 +302,7 @@ def fin_pic(sss):
             else:
                 copy_to_buffer(j[0])
         for j in q2:
-            uri = f"https://db.chgk.info/images/db/{j[0]}"
+            uri = f"{DB_CHGK}/images/db/{j[0]}"
             if int_on:
                 try:
                     if not open_chrome(uri):
@@ -347,7 +347,7 @@ def read_local(src):
 
 @write_time
 def read_global(src):
-    uri = 'https://db.chgk.info/tour/%s/xml'
+    uri = f'{DB_CHGK}/tour/%s/xml'
     my_print(uri % src)
     try:
         req = requests.get(uri % src, timeout=2)
@@ -396,7 +396,7 @@ def read_page(src=None, name=None):
     else:
         return read_questions(root, src)
         # import webbrowser
-        # webbrowser.get("google-chrome").open("https://db.chgk.info/tour/" + src)
+        # webbrowser.get("google-chrome").open(f"{DB_CHGK}/tour/{src}")
     # for i in ar:
     #     read_page(i, i)
     # read_page(ar[0], ar[0])
@@ -463,7 +463,7 @@ def read_questions(root, src):
         if not is_internet_on:
             my_print("Error: Internet is off and the package with such name wasn't found in the local library")
         else:
-            my_print("Error: The package with such name wasn't found at https://db.chgk.info")
+            my_print(f"Error: The package with such name wasn't found at {DB_CHGK}")
         return None
     my_print("\n\t\t\t", get_parent_title(), title.text)
 
@@ -574,7 +574,10 @@ if __name__ == '__main__':
                         my_print("Looking for unfinished game...", end="", flush=True)
                         from time import sleep
                         sleep(1.3)
-                        my_print(end="\r\033[K")
+                        if USE_CONTROL_CHARACTERS:
+                            my_print(end="\r\033[K")
+                        else:
+                            my_print()
             else:
                 Reader("")
         else:
@@ -608,7 +611,7 @@ if __name__ == '__main__':
     # read_page("ovsch20.3_u.1", "ovsch20.3_u.1")
     # cursor.execute("""SELECT * FROM links""")
     # print(cursor.fetchall())
-    # https://db.chgk.info/tour/holgo2011_u.2/xml
+    # https://db.chgk.net/tour/holgo2011_u.2/xml
     
 # DONE add playing by package name
 # DONE add playing from inner memory

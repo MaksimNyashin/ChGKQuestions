@@ -2,7 +2,7 @@ from re import compile as re_compile, IGNORECASE as re_IGNORECASE
 from os import path as os_path, mkdir as os_mkdir
 from platform import system as platform_system
 from typing import Optional
-from sys import argv as sys_argv
+from sys import argv as sys_argv, modules as sys_modules
 
 DEBUG = len(sys_argv) > 1 and sys_argv[1] in ("-d", "-D")
 TESTING = len(sys_argv) > 1 and sys_argv[1] in ("-t", "-T")
@@ -109,9 +109,12 @@ SYSTEM_WINDOWS = "Windows"
 SYSTEM_LINUX = "Linux"
 SYSTEM_MACOS = "Darwin"
 
-if CURRENT_SYSTEM == SYSTEM_WINDOWS:
+USE_CONTROL_CHARACTERS = "colorama" in sys_modules.keys()
+if CURRENT_SYSTEM == SYSTEM_WINDOWS and USE_CONTROL_CHARACTERS:
     import colorama
     colorama.init()
+
+DB_CHGK = "https://db.chgk.net"
 
 MEASURE_TIME = False and DEBUG
 FORCE_LOCAL(False)
