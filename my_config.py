@@ -113,10 +113,13 @@ SYSTEM_WINDOWS = "Windows"
 SYSTEM_LINUX = "Linux"
 SYSTEM_MACOS = "Darwin"
 
+if CURRENT_SYSTEM == SYSTEM_WINDOWS:
+    try:
+        import colorama
+        colorama.init()
+    except ModuleNotFoundError:
+        pass
 USE_CONTROL_CHARACTERS = "colorama" in sys_modules.keys()
-if CURRENT_SYSTEM == SYSTEM_WINDOWS and USE_CONTROL_CHARACTERS:
-    import colorama
-    colorama.init()
 
 DB_CHGK = "https://db.chgk.net"
 

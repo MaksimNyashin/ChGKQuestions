@@ -139,8 +139,9 @@ class Reader:
     def __init__(self, lines: str):
         self._pos = 0
         self._lines = lines.split("\n")
-        add_layer()
-        IS_READ_ALOUD(False)
+        if self.is_auto_playing():
+            add_layer()
+            IS_READ_ALOUD(False)
         Reader._instances.append(self)
         with open(COMMAND_HISTORY_LOG_FILE, "w"):
             pass
@@ -369,8 +370,7 @@ def read_global(src, silent=False):
 
 def read_page(src=None, name=None):
     if src[0] != "$" and not is_internet_on():
-        read_page("$" + src, "$" + name)
-        return
+        return read_page("$" + src, "$" + name)
     lcl = False
     if src is None:
         src = ""
@@ -385,8 +385,7 @@ def read_page(src=None, name=None):
     else:
         txt = read_global(src)
         if txt is None:
-            read_page("$" + src[:-1], "$" + name)
-            return
+            return read_page("$" + src, "$" + name)
 
     # pack_src = "pack/%s.xml" % src
     # with codecs.open(pack_src, "w", "utf-8") as fo:
@@ -478,7 +477,7 @@ def read_questions(root, src):
 
     title = next(root.iter("Title"), None)
     if title is None or title.text == UNKNOWN_PACKAGE:
-        if not is_internet_on:
+        if not is_internet_on():
             my_print("Error: Internet is off and the package with such name wasn't found in the local library")
         else:
             my_print(f"Error: The package with such name wasn't found at {DB_CHGK}")
@@ -665,7 +664,6 @@ if __name__ == '__main__':
 # DONE: Added launch with keys (for testing, debug, game mods)
 # DONE: Added testing mode
 # DONE: Added xml_loader with caching all loaded xmls (included parents)
-# DONE: Added xml reader from cache
 # DONE: Added reading from cache/memory if there exists package
 # TODO: add replacing from transliteration in square brackets
 # TODO: add testing
