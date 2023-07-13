@@ -61,7 +61,7 @@ def AUTOPLAY_UNFINSHED(name, new_val: Optional[bool] = None):
 
 @name_wrap
 def FORCE_LOCAL(name, new_val: Optional[bool] = None):
-    return _Config.process(name, new_val) and (DEBUG or TESTING)
+    return _Config.process(name, new_val)
 
 @name_wrap
 def IS_READ_ALOUD(name, new_val: Optional[bool] = None):
@@ -73,19 +73,23 @@ def LOCAL_LIBRARY_FILE(name, new_val: Optional[str] = None):
 
 @name_wrap
 def SUPPRESS_AUTOSAVE(name, new_val: Optional[bool] = None):
-    return _Config.process(name, new_val) and (DEBUG or TESTING)
+    return _Config.process(name, new_val)
+
+@name_wrap
+def SAVE_CACHE_PACKAGE(name, new_val: Optional[bool] = None):
+    return _Config.process(name, new_val)
 
 @name_wrap
 def SUPPRESS_GOOD(name, new_val: Optional[bool] = None):
-    return _Config.process(name, new_val) and (DEBUG or TESTING)
+    return _Config.process(name, new_val)
 
 @name_wrap
 def SUPPESS_PICS(name, new_val: Optional[bool] = None):
-    return _Config.process(name, new_val) and (DEBUG or TESTING)
+    return _Config.process(name, new_val)
 
 @name_wrap
 def SUPPRESS_RESULTS(name, new_val: Optional[bool] = None):
-    return _Config.process(name, new_val) and (DEBUG or TESTING)
+    return _Config.process(name, new_val)
 
 @name_wrap
 def UNFINISHED_FILE_READ(name, new_val: Optional[str] = None):
@@ -126,6 +130,7 @@ SUPPRESS_RESULTS(False)
 IS_READ_ALOUD(False)
 AUTOPLAY_UNFINSHED(True)
 WRITE_TESTS_OUTPUT(True)
+SAVE_CACHE_PACKAGE(True)
 
 RE_SITE = re_compile("(https?://[a-zA-Z\d./_-]*\.(png|jpg|jpeg|gif|bmp))", re_IGNORECASE)
 RE_DB_SITE = re_compile("pic:[ \n](\d+\.(png|jpg|jpeg|gif|bmp))", re_IGNORECASE)
@@ -142,12 +147,14 @@ RESULT_DIR = os_path.join(CURRENT_DIR, "results")
 TESTS_DIR = os_path.join(CURRENT_DIR, "tests")
 TESTS_SRC_DIR = os_path.join(TESTS_DIR, "src")
 TMP_DIR = os_path.join(CURRENT_DIR, "tmp")
+TMP_PACKAGE_CACHE_DIR = os_path.join(TMP_DIR, "package_cache")
 TMP_TESTS_DIR = os_path.join(TMP_DIR, "tests")
-FOLDERS_TO_CREATE = (RESULT_DIR, TMP_DIR, TESTS_DIR, TMP_TESTS_DIR, TESTS_SRC_DIR)
+FOLDERS_TO_CREATE = (RESULT_DIR, TMP_DIR, TESTS_DIR, TMP_TESTS_DIR, TESTS_SRC_DIR, TMP_PACKAGE_CACHE_DIR)
 
 COMMAND_HISTORY_LOG_FILE = os_path.join(TMP_DIR, "command_history.log")
 GOOD_FILE = os_path.join(CURRENT_DIR, "good.txt")
 LOCAL_LIBRARY_FILE(os_path.join(LOCAL_LIBRARY_DIR, "%s.xml"))
+PACKAGE_CACHE_FILE = os_path.join(TMP_PACKAGE_CACHE_DIR, "%s.xml")
 READ_ALOUD_FILE = os_path.join(TMP_DIR, "read.vbs")
 TEST_FILE = os_path.join(TESTS_DIR, "%s.tst")
 TEST_SOURCE_FILE = os_path.join(TESTS_SRC_DIR, "%s.xml")

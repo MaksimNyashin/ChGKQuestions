@@ -108,6 +108,7 @@ def init_testing():
     FORCE_LOCAL(True)
     IS_READ_ALOUD(False)
     LOCAL_LIBRARY_FILE(TEST_SOURCE_FILE)
+    SAVE_CACHE_PACKAGE(False)
     SUPPRESS_AUTOSAVE(True)
     SUPPRESS_GOOD(True)
     SUPPESS_PICS(True)
@@ -123,6 +124,7 @@ def init_debug():
     AUTOPLAY_UNFINSHED(True)
     FORCE_LOCAL(True)
     IS_READ_ALOUD(False)
+    SAVE_CACHE_PACKAGE(False)
     SUPPRESS_AUTOSAVE(True)
     SUPPRESS_GOOD(True)
     SUPPESS_PICS(True)
@@ -351,6 +353,9 @@ def read_global(src):
     my_print(uri % src)
     try:
         req = requests.get(uri % src, timeout=2)
+        if SAVE_CACHE_PACKAGE():
+            with open(PACKAGE_CACHE_FILE % src, "w", encoding="utf-8") as fo:
+                fo.write(req.text)
         return req.text
     except (requests.ConnectionError, requests.Timeout) as ex:
         global INTERNET_ON
@@ -645,8 +650,9 @@ if __name__ == '__main__':
 # DONE: Added command logging
 # DONE: Added launch with keys (for testing, debug, game mods)
 # DONE: Added testing mode
+# DONE: Added xml_loader with caching all loaded xmls (included parents)
+# TODO: add xml reader from cache
 # TODO: add replacing from transliteration in square brackets
 # TODO: add testing
-# TODO: add xml_loader with caching all loaded xmls (included parents)
 # TODO: add game mode (timer, no text, only reading aloud and pictures)
 # TODO: add duplets and blitz to reading and showing pictures (u20let.1/6)
