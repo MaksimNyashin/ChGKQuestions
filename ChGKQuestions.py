@@ -193,6 +193,7 @@ def key_input(txt: str, **kwargs) -> str:
 
 def my_print(*args, **kwargs):
     if kwargs.get("silent", False) != True:
+        kwargs.pop('silent', None)
         print(*args, **kwargs)
     if not WRITE_TESTS_OUTPUT():
         return
@@ -338,19 +339,23 @@ def create_table(name, arr):
 
 @write_time
 def read_local(src):
-    lcl_src = LOCAL_LIBRARY_FILE() % src
-    my_print(lcl_src)
-    if not path.isfile(lcl_src):
+    if not exists_local(src):
         return DEFAULT_XML
+    if path.exists(LOCAL_LIBRARY_FILE() % src):
+        lcl_src = LOCAL_LIBRARY_FILE() % src
+    elif path.exists(PACKAGE_CACHE_FILE % src):
+        lcl_src = PACKAGE_CACHE_FILE % src
+    my_print(lcl_src)
     with open(lcl_src, "r", encoding="utf-8") as fo:
-        txt = fo.read()
-    return txt
+        return fo.read()
 
 
 @write_time
-def read_global(src):
+def read_global(src, silent=False):
+    if exists_local(src):
+        return read_local(src)
     uri = f'{DB_CHGK}/tour/%s/xml'
-    my_print(uri % src)
+    my_print(uri % src, silent=silent)
     try:
         req = requests.get(uri % src, timeout=2)
         if SAVE_CACHE_PACKAGE():
@@ -409,6 +414,10 @@ def read_page(src=None, name=None):
     # print(r.text)
 
 
+def exists_local(filename) -> bool:
+    return path.exists(PACKAGE_CACHE_FILE % filename) or path.exists(LOCAL_LIBRARY_FILE() % filename)
+
+
 def read_questions(root, src):
     parent_xml = None
 
@@ -460,7 +469,11 @@ def read_questions(root, src):
         tour_num = int(tour_num) + 1
         root = get_parent_xml(parent_src)
         tours = root.findall("tour/Number")
-        return f"{parent_src}.{tour_num}" if (tour_num) in [int(t.text) for t in tours] else None
+        lst = [int(t.text) for t in tours]
+        for num in lst:
+            if not exists_local(f"{parent_src}.{num}"):
+                Thread(target=read_global, args=(f"{parent_src}.{num}", True)).start()
+        return f"{parent_src}.{tour_num}" if tour_num in lst else None
 
 
     title = next(root.iter("Title"), None)
@@ -476,6 +489,7 @@ def read_questions(root, src):
     num = len(ff)
     result_saver = ResultSaver(num, root.find("TextId").text)
     right, total = 0, 0
+    get_next_tour()
     try:
         for i in ff:
             total += 1
@@ -651,7 +665,8 @@ if __name__ == '__main__':
 # DONE: Added launch with keys (for testing, debug, game mods)
 # DONE: Added testing mode
 # DONE: Added xml_loader with caching all loaded xmls (included parents)
-# TODO: add xml reader from cache
+# DONE: Added xml reader from cache
+# DONE: Added reading from cache/memory if there exists package
 # TODO: add replacing from transliteration in square brackets
 # TODO: add testing
 # TODO: add game mode (timer, no text, only reading aloud and pictures)
