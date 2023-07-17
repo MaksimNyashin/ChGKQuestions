@@ -119,7 +119,7 @@ if CURRENT_SYSTEM == SYSTEM_WINDOWS:
         colorama.init()
     except ModuleNotFoundError:
         pass
-USE_CONTROL_CHARACTERS = "colorama" in sys_modules.keys()
+USE_CONTROL_CHARACTERS = "colorama" in sys_modules.keys() or CURRENT_SYSTEM != SYSTEM_WINDOWS
 
 DB_CHGK = "https://db.chgk.net"
 
@@ -145,7 +145,8 @@ RUNNING = True
 SECONDS_PER_REQUEST = 15
 
 CURRENT_DIR = os_path.dirname(os_path.abspath(__file__))
-LOCAL_LIBRARY_DIR = os_path.join(os_path.dirname(CURRENT_DIR), "ChGKWordGetter", "src")
+PARENT_DIR = os_path.dirname(CURRENT_DIR)
+LOCAL_LIBRARY_DIR = os_path.join(PARENT_DIR, "ChGKWordGetter", "src")
 RESULT_DIR = os_path.join(CURRENT_DIR, "results")
 TESTS_DIR = os_path.join(CURRENT_DIR, "tests")
 TESTS_SRC_DIR = os_path.join(TESTS_DIR, "src")
@@ -154,13 +155,16 @@ TMP_PACKAGE_CACHE_DIR = os_path.join(TMP_DIR, "package_cache")
 TMP_TESTS_DIR = os_path.join(TMP_DIR, "tests")
 FOLDERS_TO_CREATE = (RESULT_DIR, TMP_DIR, TESTS_DIR, TMP_TESTS_DIR, TESTS_SRC_DIR, TMP_PACKAGE_CACHE_DIR)
 
+TEST_EXTENSION = ".tst"
+CANON_RESULT_FILE = os_path.join(TESTS_DIR, f"%s.canon")
 COMMAND_HISTORY_LOG_FILE = os_path.join(TMP_DIR, "command_history.log")
 GOOD_FILE = os_path.join(CURRENT_DIR, "good.txt")
 LOCAL_LIBRARY_FILE(os_path.join(LOCAL_LIBRARY_DIR, "%s.xml"))
 PACKAGE_CACHE_FILE = os_path.join(TMP_PACKAGE_CACHE_DIR, "%s.xml")
 READ_ALOUD_FILE = os_path.join(TMP_DIR, "read.vbs")
-TEST_FILE = os_path.join(TESTS_DIR, "%s.tst")
+TEST_FILE = os_path.join(TESTS_DIR, f"%s{TEST_EXTENSION}")
 TEST_SOURCE_FILE = os_path.join(TESTS_SRC_DIR, "%s.xml")
+TMP_DIFF_FILE = os_path.join(TMP_DIR, "diff.txt")
 TMP_TESTS_FILE = os_path.join(TMP_TESTS_DIR, "test.result")
 UNFINISHED_FILE_READ(os_path.join(TMP_DIR, "unfinished.txt"))
 UNFINISHED_FILE_WRITE = os_path.join(TMP_DIR, "unfinished.txt")
@@ -177,3 +181,9 @@ DEFAULT_XML = f"<tournament><Title>{UNKNOWN_PACKAGE}</Title></tournament>"
 
 MUTE_KEYS = ("-m", "-ь")
 UNMUTE_KEYS = ("-u", "-um", "-г", "-гь")
+
+
+class COLORS:
+    OKGREEN = '\033[92m' if USE_CONTROL_CHARACTERS else ''
+    FAIL = '\033[91m' if USE_CONTROL_CHARACTERS else ''
+    END = '\033[0m' if USE_CONTROL_CHARACTERS else ''

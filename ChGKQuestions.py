@@ -339,14 +339,14 @@ def create_table(name, arr):
 
 
 @write_time
-def read_local(src):
+def read_local(src, silent=False):
     if not exists_local(src):
         return DEFAULT_XML
     if path.exists(LOCAL_LIBRARY_FILE() % src):
         lcl_src = LOCAL_LIBRARY_FILE() % src
     elif path.exists(PACKAGE_CACHE_FILE % src):
         lcl_src = PACKAGE_CACHE_FILE % src
-    my_print(lcl_src)
+    my_print(lcl_src.replace(CURRENT_DIR, "CURRENT_DIR").replace(PARENT_DIR, "PARENT_DIR").replace('\\', '/'), silent=silent)
     with open(lcl_src, "r", encoding="utf-8") as fo:
         return fo.read()
 
@@ -445,13 +445,13 @@ def read_questions(root, src):
             p = nx + 1
 
     @write_time
-    def get_parent_xml(parent_src):
+    def get_parent_xml(parent_src, silent=False):
         nonlocal parent_xml
         if parent_xml is None:
             if is_internet_on():
-                txt = read_global(parent_src)
+                txt = read_global(parent_src, silent)
             else:
-                txt = read_local(parent_src)
+                txt = read_local(parent_src, silent)
             parent_xml = Et.fromstring(txt)
         return parent_xml
 
@@ -461,12 +461,12 @@ def read_questions(root, src):
         return parent.text if parent is not None else UNKNOWN_PACKAGE
 
     @write_time
-    def get_next_tour():
+    def get_next_tour(silent=False):
         if src.find(".", 0, -1) == -1:
             return None
         parent_src, tour_num = src.rsplit(".", 1)
         tour_num = int(tour_num) + 1
-        root = get_parent_xml(parent_src)
+        root = get_parent_xml(parent_src, silent)
         tours = root.findall("tour/Number")
         lst = [int(t.text) for t in tours]
         for num in lst:
@@ -488,7 +488,7 @@ def read_questions(root, src):
     num = len(ff)
     result_saver = ResultSaver(num, root.find("TextId").text)
     right, total = 0, 0
-    get_next_tour()
+    Thread(target=get_next_tour, args=(True,))
     try:
         for i in ff:
             total += 1
@@ -665,7 +665,8 @@ if __name__ == '__main__':
 # DONE: Added testing mode
 # DONE: Added xml_loader with caching all loaded xmls (included parents)
 # DONE: Added reading from cache/memory if there exists package
+# DONE: Added testing
 # TODO: add replacing from transliteration in square brackets
-# TODO: add testing
+# TODO: add test creator (existing questions from different packages by its names into one new package)
 # TODO: add game mode (timer, no text, only reading aloud and pictures)
 # TODO: add duplets and blitz to reading and showing pictures (u20let.1/6)
