@@ -3,10 +3,65 @@ from os import path as os_path, mkdir as os_mkdir
 from platform import system as platform_system
 from typing import Optional
 from sys import argv as sys_argv, modules as sys_modules
+from enum import Enum
+from datetime import date as dt_date
 
 DEBUG = len(sys_argv) > 1 and sys_argv[1] in ("-d", "-D")
 TESTING = len(sys_argv) > 1 and sys_argv[1] in ("-t", "-T")
 print(f"{DEBUG=}, {TESTING=}")
+
+
+class LAYERS(Enum):
+    DEBUG = "debug"
+    TESTING = "testing"
+    OUTER = "outer"
+    READER = "reader"
+    CUSTOM = "custom"  # can't be used in working code? only whule writing
+
+
+def init_testing():
+    with open(TMP_TESTS_FILE, "w"):
+        pass
+    if not TESTING:
+        return
+    from sys import argv
+    if len(argv) < 3:
+        raise IndexError("No test number found during launching testing mode")
+    add_layer(LAYERS.TESTING)
+    AUTOPLAY_UNFINSHED(True)
+    FORCE_LOCAL(True)
+    IS_READ_ALOUD(False)
+    LOCAL_LIBRARY_FILE(TEST_SOURCE_FILE)
+    SAVE_CACHE_PACKAGE(False)
+    SUPPRESS_AUTOSAVE(True)
+    SUPPRESS_GOOD(True)
+    SUPPESS_PICS(True)
+    SUPPRESS_RESULTS(True)
+    UNFINISHED_FILE_READ(TEST_FILE % argv[2])
+    UNIFY_DATE(True)
+    WRITE_TESTS_OUTPUT(True)
+    # print("testing", set(_Config.get_instance().__dict__.keys()) - set(_Config.get_instance()._history[-1].keys()))
+
+def init_debug():
+    if not DEBUG:
+        return
+    add_layer(LAYERS.DEBUG)
+    AUTOPLAY_UNFINSHED(True)
+    FORCE_LOCAL(True)
+    IS_READ_ALOUD(False)
+    SAVE_CACHE_PACKAGE(False)
+    SUPPRESS_AUTOSAVE(True)
+    SUPPRESS_GOOD(True)
+    SUPPESS_PICS(True)
+    SUPPRESS_RESULTS(True)
+    UNIFY_DATE(True)
+    WRITE_TESTS_OUTPUT(True)
+    # print("debug", set(_Config.get_instance().__dict__.keys()) - set(_Config.get_instance()._history[-1].keys()))
+
+
+def init_outer_main():
+    add_layer(LAYERS.OUTER)
+    # TODO
 
 class _Config:
     _instances = []
@@ -21,10 +76,14 @@ class _Config:
         self._history[-1][name] = self._get_value(name)
         self.__dict__[name] = value
 
-    def _add_layer(self):
+    def _add_layer(self, layer):
         self._history.append(dict())
+        self._set_value('layer', layer)
 
-    def _pop_layer(self):
+    def _pop_layer(self, layer):
+        old_layer = self._get_value('layer')
+        if old_layer != layer:
+            raise ValueError(f"Error found while popping config. Expected {old_layer.value!r} got {layer.value!r}")
         for key in self._history[-1]:
             self.__dict__[key] = self._history[-1][key]
 
@@ -42,13 +101,13 @@ class _Config:
             cls.get_instance()._set_value(name, new_val)
 
     @classmethod
-    def add_layer(cls):
-        cls.get_instance()._add_layer()
+    def add_layer(cls, layer: LAYERS):
+        cls.get_instance()._add_layer(layer)
 
     @classmethod
-    def pop_layer(cls):
-        cls.get_instance()._pop_layer()
-C=_Config
+    def pop_layer(cls, layer: LAYERS):
+        cls.get_instance()._pop_layer(layer)
+
 
 def name_wrap(func):
     def wrapper(*args, **kwargs):
@@ -96,14 +155,18 @@ def UNFINISHED_FILE_READ(name, new_val: Optional[str] = None):
     return _Config.process(name, new_val)
 
 @name_wrap
+def UNIFY_DATE(name, new_val: Optional[bool] = None):
+    return _Config.process(name, new_val)
+
+@name_wrap
 def WRITE_TESTS_OUTPUT(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
-def add_layer():
-    _Config.add_layer()
+def add_layer(layer: LAYERS):
+    _Config.add_layer(layer)
 
-def pop_layer():
-    _Config.pop_layer()
+def pop_layer(layer: LAYERS):
+    _Config.pop_layer(layer)
 
 
 
@@ -123,12 +186,15 @@ USE_CONTROL_CHARACTERS = "colorama" in sys_modules.keys() or CURRENT_SYSTEM != S
 
 DB_CHGK = "https://db.chgk.net"
 
+DEFAULT_DATE = dt_date(1970, 1, 1)
+
 MEASURE_TIME = False and DEBUG
 FORCE_LOCAL(False)
 SUPPRESS_AUTOSAVE(False)
 SUPPRESS_GOOD(False)
 SUPPESS_PICS(False)
 SUPPRESS_RESULTS(False)
+UNIFY_DATE(False)
 
 IS_READ_ALOUD(False)
 AUTOPLAY_UNFINSHED(True)

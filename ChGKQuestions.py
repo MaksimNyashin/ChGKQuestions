@@ -95,43 +95,6 @@ def read_text_aloud(txt: str):
         my_print("read_text_aloud: Ctrl+C")
 
 
-def init_testing():
-    with open(TMP_TESTS_FILE, "w"):
-        pass
-    if not TESTING:
-        return
-    from sys import argv
-    if len(argv) < 3:
-        raise IndexError("No test number found during launching testing mode")
-    add_layer()
-    AUTOPLAY_UNFINSHED(True)
-    FORCE_LOCAL(True)
-    IS_READ_ALOUD(False)
-    LOCAL_LIBRARY_FILE(TEST_SOURCE_FILE)
-    SAVE_CACHE_PACKAGE(False)
-    SUPPRESS_AUTOSAVE(True)
-    SUPPRESS_GOOD(True)
-    SUPPESS_PICS(True)
-    SUPPRESS_RESULTS(True)
-    UNFINISHED_FILE_READ(TEST_FILE % argv[2])
-    WRITE_TESTS_OUTPUT(True)
-    # print("testing", set(C.get_instance().__dict__.keys()) - set(C.get_instance()._history[-1].keys()))
-
-def init_debug():
-    if not DEBUG:
-        return
-    add_layer()
-    AUTOPLAY_UNFINSHED(True)
-    FORCE_LOCAL(True)
-    IS_READ_ALOUD(False)
-    SAVE_CACHE_PACKAGE(False)
-    SUPPRESS_AUTOSAVE(True)
-    SUPPRESS_GOOD(True)
-    SUPPESS_PICS(True)
-    SUPPRESS_RESULTS(True)
-    WRITE_TESTS_OUTPUT(True)
-    # print("debug", set(C.get_instance().__dict__.keys()) - set(C.get_instance()._history[-1].keys()))
-
 
 class Reader:
     _instances=[]
@@ -140,7 +103,7 @@ class Reader:
         self._pos = 0
         self._lines = lines.split("\n")
         if self.is_auto_playing():
-            add_layer()
+            add_layer(LAYERS.READER)
             IS_READ_ALOUD(False)
         Reader._instances.append(self)
         with open(COMMAND_HISTORY_LOG_FILE, "w"):
@@ -158,7 +121,7 @@ class Reader:
             my_print(f"{txt}{result}")
             self._pos += 1
             if not self.is_auto_playing():
-                pop_layer()
+                pop_layer(LAYERS.READER)
             return result
         inp_res = input(txt)
         my_print(f"{txt}{inp_res}", silent=True)
@@ -218,7 +181,10 @@ class ResultSaver:
         self._number = number
         self._name = name
         self._result = 0
-        self._day = datetime.datetime.today().strftime("%d.%m.%Y")
+        if UNIFY_DATE():
+            self._day = DEFAULT_DATE.strftime("%d.%m.%Y")
+        else:
+            self._day = datetime.datetime.today().strftime("%d.%m.%Y")
         self._authors = {}
         self._last = 0
 
@@ -595,7 +561,7 @@ if __name__ == '__main__':
                         if USE_CONTROL_CHARACTERS:
                             my_print(end="\r\033[K")
                         else:
-                            my_print()
+                            my_print(f"\r{' '*30}\r", end="")
             else:
                 Reader("")
         else:
