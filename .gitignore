@@ -15,4 +15,4 @@ results/
 experiments/
 
 get_copy_text/
-!tests/src/*.xml
+*.canon

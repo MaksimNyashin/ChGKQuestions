@@ -632,7 +632,7 @@ if __name__ == '__main__':
 # DONE: Added xml_loader with caching all loaded xmls (included parents)
 # DONE: Added reading from cache/memory if there exists package
 # DONE: Added testing
+# DONE: Added test creator (existing questions from different packages by its names into one new package)
 # TODO: add replacing from transliteration in square brackets
-# TODO: add test creator (existing questions from different packages by its names into one new package)
 # TODO: add game mode (timer, no text, only reading aloud and pictures)
 # TODO: add duplets and blitz to reading and showing pictures (u20let.1/6)

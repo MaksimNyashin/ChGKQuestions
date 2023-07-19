@@ -40,7 +40,7 @@ def init_testing():
     UNFINISHED_FILE_READ(TEST_FILE % argv[2])
     UNIFY_DATE(True)
     WRITE_TESTS_OUTPUT(True)
-    # print("testing", set(_Config.get_instance().__dict__.keys()) - set(_Config.get_instance()._history[-1].keys()))
+    _Config.write_dict_diff()
 
 def init_debug():
     if not DEBUG:
@@ -56,12 +56,17 @@ def init_debug():
     SUPPRESS_RESULTS(True)
     UNIFY_DATE(True)
     WRITE_TESTS_OUTPUT(True)
-    # print("debug", set(_Config.get_instance().__dict__.keys()) - set(_Config.get_instance()._history[-1].keys()))
+    _Config.write_dict_diff()
 
 
 def init_outer_main():
     add_layer(LAYERS.OUTER)
-    # TODO
+    FORCE_LOCAL(False)
+    IS_READ_ALOUD(False)
+    SAVE_CACHE_PACKAGE(True)
+    UNIFY_DATE(True)
+    WRITE_TESTS_OUTPUT(False)
+    # _Config.write_dict_diff()
 
 class _Config:
     _instances = []
@@ -108,6 +113,10 @@ class _Config:
     def pop_layer(cls, layer: LAYERS):
         cls.get_instance()._pop_layer(layer)
 
+    @classmethod
+    def write_dict_diff(cls):
+        from ChGKQuestions import my_print
+        my_print(cls.process("layer", None).value, set(cls.get_instance().__dict__.keys()) - set(cls.get_instance()._history[-1].keys()), sep=": ", silent=True)
 
 def name_wrap(func):
     def wrapper(*args, **kwargs):
@@ -221,8 +230,10 @@ TMP_PACKAGE_CACHE_DIR = os_path.join(TMP_DIR, "package_cache")
 TMP_TESTS_DIR = os_path.join(TMP_DIR, "tests")
 FOLDERS_TO_CREATE = (RESULT_DIR, TMP_DIR, TESTS_DIR, TMP_TESTS_DIR, TESTS_SRC_DIR, TMP_PACKAGE_CACHE_DIR)
 
+CANON_EXTENSION = ".canon"
 TEST_EXTENSION = ".tst"
-CANON_RESULT_FILE = os_path.join(TESTS_DIR, f"%s.canon")
+TEST_SOURCE_BASE_EXTENSION = ".srclist"
+CANON_RESULT_FILE = os_path.join(TESTS_DIR, f"%s{CANON_EXTENSION}")
 COMMAND_HISTORY_LOG_FILE = os_path.join(TMP_DIR, "command_history.log")
 GOOD_FILE = os_path.join(CURRENT_DIR, "good.txt")
 LOCAL_LIBRARY_FILE(os_path.join(LOCAL_LIBRARY_DIR, "%s.xml"))
@@ -230,6 +241,7 @@ PACKAGE_CACHE_FILE = os_path.join(TMP_PACKAGE_CACHE_DIR, "%s.xml")
 READ_ALOUD_FILE = os_path.join(TMP_DIR, "read.vbs")
 TEST_FILE = os_path.join(TESTS_DIR, f"%s{TEST_EXTENSION}")
 TEST_SOURCE_FILE = os_path.join(TESTS_SRC_DIR, "%s.xml")
+TEST_SOURCE_BASE_FILE = os_path.join(TESTS_SRC_DIR, f"%s{TEST_SOURCE_BASE_EXTENSION}")
 TMP_DIFF_FILE = os_path.join(TMP_DIR, "diff.txt")
 TMP_TESTS_FILE = os_path.join(TMP_TESTS_DIR, "test.result")
 UNFINISHED_FILE_READ(os_path.join(TMP_DIR, "unfinished.txt"))
