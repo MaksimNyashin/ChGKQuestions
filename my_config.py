@@ -16,6 +16,7 @@ class LAYERS(Enum):
     TESTING = "testing"
     OUTER = "outer"
     READER = "reader"
+    KEY_READ_ALOUD = "key_read_aloud"
     CUSTOM = "custom"  # can't be used in working code? only whule writing
 
 
@@ -73,24 +74,52 @@ class _Config:
     def __init__(self):
         self._instances.append(self)
         self._history = [dict()]
+        self._current = dict()
 
     def _get_value(self, name):
-        return self.__dict__.get(name, None)
+        return self._current.get(name, None)
 
     def _set_value(self, name, value):
         self._history[-1][name] = self._get_value(name)
-        self.__dict__[name] = value
+        self._current[name] = value
 
-    def _add_layer(self, layer):
+    def _add_layer(self, layer: LAYERS):
         self._history.append(dict())
         self._set_value('layer', layer)
 
-    def _pop_layer(self, layer):
-        old_layer = self._get_value('layer')
-        if old_layer != layer:
-            raise ValueError(f"Error found while popping config. Expected {old_layer.value!r} got {layer.value!r}")
+    def _pop_current_layer(self):
         for key in self._history[-1]:
-            self.__dict__[key] = self._history[-1][key]
+            self._current[key] = self._history[-1][key]
+        self._history.pop()
+
+    def _pop_layer(self, layer: LAYERS):
+        # for i in self._history:
+        #     print (i)
+        # print(self._current)
+        if self._get_value('layer') is layer:
+            return self._pop_current_layer()
+
+        ind = len(self._history) - 1
+        while ind > 0 and self._history[ind]['layer'] is not layer:
+            ind -= 1
+        if ind == 0:
+            raise ValueError(f"No layer with name {layer.value!r} found in the Config history")
+        ind -= 1
+        
+        tmp = self._history.pop(ind)
+        keys = set(tmp.keys())
+        # print(tmp)
+        for i in range(ind, len(self._history)):
+            cur_keys = set(self._history[i].keys())
+            intersec = keys & set(self._history[i].keys())
+            for key in intersec:
+                self._history[i][key] = tmp[key]
+            keys -= intersec
+            # print(keys)
+
+        for key in keys:
+            self._current[key] = tmp[key]
+        # print(self._current)
 
     @classmethod
     def get_instance(cls):
@@ -116,7 +145,7 @@ class _Config:
     @classmethod
     def write_dict_diff(cls):
         from ChGKQuestions import my_print
-        my_print(cls.process("layer", None).value, set(cls.get_instance().__dict__.keys()) - set(cls.get_instance()._history[-1].keys()), sep=": ", silent=True)
+        my_print(cls.process("layer", None).value, set(cls.get_instance()._current.keys()) - set(cls.get_instance()._history[-1].keys()), sep=": ", silent=True)
 
 def name_wrap(func):
     def wrapper(*args, **kwargs):

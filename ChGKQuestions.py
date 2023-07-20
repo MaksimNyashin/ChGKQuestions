@@ -146,12 +146,21 @@ def key_input(txt: str, **kwargs) -> str:
         res = mid_input(f"-> {txt}")
         result = res.lower()
         if result in MUTE_KEYS:
-            IS_READ_ALOUD(False)
-            my_print("Reading aloud turned off")
+            if IS_READ_ALOUD():
+                pop_layer(LAYERS.KEY_READ_ALOUD)
+                my_print("Reading aloud turned off")
+            else:
+                my_print("Reading aloud is already turned off")
         elif result in UNMUTE_KEYS:
             if CURRENT_SYSTEM == SYSTEM_WINDOWS:
-                IS_READ_ALOUD(True)
-                my_print("Reading aloud turned on")
+                if not IS_READ_ALOUD():
+                    add_layer(LAYERS.KEY_READ_ALOUD)
+                    IS_READ_ALOUD(True)
+                    my_print("Reading aloud turned on")
+                else:
+                    my_print("Reading aloud is already turned on")
+            else:
+                my_print("Reading aloud is not supported yet on your OS")
         else:
             return res
 
