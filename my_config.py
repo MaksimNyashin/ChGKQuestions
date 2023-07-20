@@ -1,4 +1,4 @@
-from re import compile as re_compile, IGNORECASE as re_IGNORECASE
+from re import compile as re_compile, IGNORECASE as re_IGNORECASE, DOTALL as re_DOTALL
 from os import path as os_path, mkdir as os_mkdir
 from platform import system as platform_system
 from typing import Optional
@@ -6,9 +6,12 @@ from sys import argv as sys_argv, modules as sys_modules
 from enum import Enum
 from datetime import date as dt_date
 
-DEBUG = len(sys_argv) > 1 and sys_argv[1] in ("-d", "-D")
-TESTING = len(sys_argv) > 1 and sys_argv[1] in ("-t", "-T")
-print(f"{DEBUG=}, {TESTING=}")
+parse_args = lambda *args: len(sys_argv) > 1 and sys_argv[1] in args
+
+DEBUG =  parse_args("-d", "-D")
+TESTING = parse_args("-t", "-T")
+GAME = parse_args("-g", "-G")
+print(f"{DEBUG=}, {TESTING=}, {GAME=}")
 
 
 class LAYERS(Enum):
@@ -17,7 +20,9 @@ class LAYERS(Enum):
     OUTER = "outer"
     READER = "reader"
     KEY_READ_ALOUD = "key_read_aloud"
-    CUSTOM = "custom"  # can't be used in working code? only whule writing
+    GAME = "game"
+    LOCAL_LIBRARY = "local_library"
+    CUSTOM = "custom"  # can't be used in release code, only whule writing
 
 
 def init_testing():
@@ -33,15 +38,18 @@ def init_testing():
     FORCE_LOCAL(True)
     IS_READ_ALOUD(False)
     LOCAL_LIBRARY_FILE(TEST_SOURCE_FILE)
+    RUN_COUNTDOWN(False)
     SAVE_CACHE_PACKAGE(False)
     SUPPRESS_AUTOSAVE(True)
     SUPPRESS_GOOD(True)
     SUPPESS_PICS(True)
     SUPPRESS_RESULTS(True)
+    SUPPRESS_TEXT(False)
     UNFINISHED_FILE_READ(TEST_FILE % argv[2])
     UNIFY_DATE(True)
     WRITE_TESTS_OUTPUT(True)
     _Config.write_dict_diff()
+
 
 def init_debug():
     if not DEBUG:
@@ -50,11 +58,13 @@ def init_debug():
     AUTOPLAY_UNFINSHED(True)
     FORCE_LOCAL(True)
     IS_READ_ALOUD(False)
+    RUN_COUNTDOWN(False)
     SAVE_CACHE_PACKAGE(False)
     SUPPRESS_AUTOSAVE(True)
     SUPPRESS_GOOD(True)
     SUPPESS_PICS(True)
     SUPPRESS_RESULTS(True)
+    SUPPRESS_TEXT(False)
     UNIFY_DATE(True)
     WRITE_TESTS_OUTPUT(True)
     _Config.write_dict_diff()
@@ -64,13 +74,35 @@ def init_outer_main():
     add_layer(LAYERS.OUTER)
     FORCE_LOCAL(False)
     IS_READ_ALOUD(False)
+    RUN_COUNTDOWN(False)
     SAVE_CACHE_PACKAGE(True)
     UNIFY_DATE(True)
     WRITE_TESTS_OUTPUT(False)
     # _Config.write_dict_diff()
 
+
+def init_game():
+    if not GAME:
+        return
+    add_layer(LAYERS.GAME)
+    FORCE_LOCAL(False)
+    IS_READ_ALOUD(True)
+    RUN_COUNTDOWN(True)
+    SAVE_CACHE_PACKAGE(True)
+    SUPPRESS_AUTOSAVE(True) # TODO
+    SUPPRESS_GOOD(False)
+    SUPPRESS_TEXT(True)
+    SUPPESS_PICS(False)
+    SUPPRESS_RESULTS(False)
+    UNIFY_DATE(False)
+    WRITE_TESTS_OUTPUT(True)
+    _Config.write_dict_diff()
+
+
 class _Config:
     _instances = []
+    LAYER = 'layer'
+
     def __init__(self):
         self._instances.append(self)
         self._history = [dict()]
@@ -85,7 +117,7 @@ class _Config:
 
     def _add_layer(self, layer: LAYERS):
         self._history.append(dict())
-        self._set_value('layer', layer)
+        self._set_value(self.LAYER, layer)
 
     def _pop_current_layer(self):
         for key in self._history[-1]:
@@ -96,11 +128,11 @@ class _Config:
         # for i in self._history:
         #     print (i)
         # print(self._current)
-        if self._get_value('layer') is layer:
+        if self._get_value(self.LAYER) is layer:
             return self._pop_current_layer()
 
         ind = len(self._history) - 1
-        while ind > 0 and self._history[ind]['layer'] is not layer:
+        while ind > 0 and self._history[ind][self.LAYER] is not layer:
             ind -= 1
         if ind == 0:
             raise ValueError(f"No layer with name {layer.value!r} found in the Config history")
@@ -145,7 +177,7 @@ class _Config:
     @classmethod
     def write_dict_diff(cls):
         from ChGKQuestions import my_print
-        my_print(cls.process("layer", None).value, set(cls.get_instance()._current.keys()) - set(cls.get_instance()._history[-1].keys()), sep=": ", silent=True)
+        my_print(cls.process(cls.LAYER, None).value, set(cls.get_instance()._current.keys()) - set(cls.get_instance()._history[-1].keys()), sep=": ", silent=True)
 
 def name_wrap(func):
     def wrapper(*args, **kwargs):
@@ -169,11 +201,15 @@ def LOCAL_LIBRARY_FILE(name, new_val: Optional[str] = None):
     return _Config.process(name, new_val)
 
 @name_wrap
-def SUPPRESS_AUTOSAVE(name, new_val: Optional[bool] = None):
+def RUN_COUNTDOWN(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
 @name_wrap
 def SAVE_CACHE_PACKAGE(name, new_val: Optional[bool] = None):
+    return _Config.process(name, new_val)
+
+@name_wrap
+def SUPPRESS_AUTOSAVE(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
 @name_wrap
@@ -186,6 +222,10 @@ def SUPPESS_PICS(name, new_val: Optional[bool] = None):
 
 @name_wrap
 def SUPPRESS_RESULTS(name, new_val: Optional[bool] = None):
+    return _Config.process(name, new_val)
+
+@name_wrap
+def SUPPRESS_TEXT(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
 @name_wrap
@@ -232,21 +272,24 @@ SUPPRESS_AUTOSAVE(False)
 SUPPRESS_GOOD(False)
 SUPPESS_PICS(False)
 SUPPRESS_RESULTS(False)
+SUPPRESS_TEXT(False)
 UNIFY_DATE(False)
 
 IS_READ_ALOUD(False)
 AUTOPLAY_UNFINSHED(True)
 WRITE_TESTS_OUTPUT(True)
+RUN_COUNTDOWN(False)
 SAVE_CACHE_PACKAGE(True)
 
 RE_SITE = re_compile("(https?://[a-zA-Z\d./_-]*\.(png|jpg|jpeg|gif|bmp))", re_IGNORECASE)
 RE_DB_SITE = re_compile("pic:[ \n](\d+\.(png|jpg|jpeg|gif|bmp))", re_IGNORECASE)
-RE_RAZDATOCHNYI_MATERIAL = re_compile("\s*\[Раздаточный материал: (.+)\]")
-RE_RAZDATKA = re_compile("\s*<раздатка>(.+)<\/раздатка>")
+RE_RAZDATOCHNYI_MATERIAL = re_compile("\s*\[Раздаточный материал: (.+)\]", re_DOTALL)
+RE_RAZDATKA = re_compile("\s*<раздатка>(.+)<\/раздатка>", re_DOTALL)
 
 INTERNET_ON = False
 RUNNING = True
 SECONDS_PER_REQUEST = 15
+GAME_RUNNING = True
 
 CURRENT_DIR = os_path.dirname(os_path.abspath(__file__))
 PARENT_DIR = os_path.dirname(CURRENT_DIR)
@@ -288,6 +331,9 @@ DEFAULT_XML = f"<tournament><Title>{UNKNOWN_PACKAGE}</Title></tournament>"
 
 MUTE_KEYS = ("-m", "-ь")
 UNMUTE_KEYS = ("-u", "-um", "-г", "-гь")
+DEBUG_TESTS_KEYS = ('-dt', "-ве")
+
+COUNTDOWN_TIME = 60
 
 
 class COLORS:

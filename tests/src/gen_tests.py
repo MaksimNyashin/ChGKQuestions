@@ -12,7 +12,7 @@ import xml.etree.ElementTree as Et
 XML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 <tournament>
 <Title>Тест_%s</Title>
-<TextId>_test</TextId>
+<TextId>%s</TextId>
 <ParentTextId>Test</ParentTextId>
 
 
@@ -47,7 +47,7 @@ def read_from_test_base(filename):
         i.join()
 
     with open(TEST_SOURCE_FILE % filename, "w", encoding="utf-8") as fo:
-        fo.write(XML_TEMPLATE % (filename, "\n\n".join(Et.tostring(val[0], encoding="unicode").replace(" />", "/>") for ind, val in enumerate(result))))
+        fo.write(XML_TEMPLATE % (filename, filename, "\n\n".join(Et.tostring(val[0], encoding="unicode").replace(" />", "/>") for ind, val in enumerate(result))))
 
 
 def main():

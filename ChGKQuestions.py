@@ -62,6 +62,8 @@ def has_pictures(txt: str) -> bool:
 
 def read_text_aloud(txt: str):
     def _read_text(txt: str) -> None:
+        if not IS_READ_ALOUD():
+            return
         # my_print(txt)
         # return
         readable_text = f'CreateObject("SAPI.SpVoice").Speak "{txt}"'
@@ -69,25 +71,36 @@ def read_text_aloud(txt: str):
             fo.write(readable_text)
         os_system(READ_ALOUD_FILE)
 
-    if not IS_READ_ALOUD():
-        return
-
     try:
-        handouts = get_handouts(txt)
-        txt = txt.replace("\r", "").replace("\n", " ").replace("\"", "\'").replace("«", "\'").replace("»", "\'").replace("\u0301", "")
-        txt = txt.replace("<раздатка>", "<").replace("</раздатка>", ">")
-        res = []
-        cnt = 0
-        st = 0
-        b = (len(handouts) > 0) or has_pictures(txt)
-        for ind, c in enumerate(txt):
-            if c in '([{<':
-                cnt += 1
-            elif cnt == 0:
-                res.append(c)
-            elif c in '}])>':
-                cnt -= 1
-        _read_text(f'{"Внимание, в вопросе есть раздаточный материал!    " if b else ""}{"".join(res)}')
+        if IS_READ_ALOUD():
+            handouts = get_handouts(txt)
+            txt = txt.replace("\r", "").replace("\n", " ").replace("\"", "\'").replace("«", "\'").replace("»", "\'").replace("\u0301", "")
+            txt = txt.replace("<раздатка>", "<").replace("</раздатка>", ">")
+            res = []
+            cnt = 0
+            st = 0
+            b = (len(handouts) > 0) or has_pictures(txt)
+            for ind, c in enumerate(txt):
+                if c in '([{<':
+                    cnt += 1
+                elif cnt == 0:
+                    res.append(c)
+                elif c in '}])>':
+                    cnt -= 1
+            _read_text(f'{"Внимание, в вопросе есть раздаточный материал!    " if b else ""}{"".join(res)}')
+
+        if RUN_COUNTDOWN():
+            from time import sleep
+            for i in range(COUNTDOWN_TIME + 1):
+                if not GAME_RUNNING:
+                    my_print()
+                    return
+                j = COUNTDOWN_TIME - i
+                my_print(f"\r{j // 60}:{j % 60:0>2}", end = '', flush=True)
+                sleep(1)
+            countdown_end = "Время вышло, сдавайте ваши ответы"
+            my_print(f"\r{countdown_end}")
+            _read_text(f"ПИИИИИП! {countdown_end}")
     except Exception as e:
         my_print(format_exc(), silent=True)
         mid_input(f"ERROR: {e}")
@@ -161,8 +174,19 @@ def key_input(txt: str, **kwargs) -> str:
                     my_print("Reading aloud is already turned on")
             else:
                 my_print("Reading aloud is not supported yet on your OS")
+        elif result in DEBUG_TESTS_KEYS:
+            if LOCAL_LIBRARY_FILE() == TEST_SOURCE_FILE:
+                pop_layer(LAYERS.LOCAL_LIBRARY)
+                my_print("Local library is Local library")
+            else:
+                add_layer(LAYERS.LOCAL_LIBRARY)
+                LOCAL_LIBRARY_FILE(TEST_SOURCE_FILE)
+                my_print("Local library is Tests")
         else:
             return res
+
+def update_src(text: str) -> str:
+    return text.replace(CURRENT_DIR, "CURRENT_DIR").replace(PARENT_DIR, "PARENT_DIR").replace('\\', '/')
 
 def my_print(*args, **kwargs):
     if kwargs.get("silent", False) != True:
@@ -172,7 +196,7 @@ def my_print(*args, **kwargs):
         return
     result = kwargs.get("sep", ' ').join(str(arg) for arg in args) + kwargs.get("end", '\n')
     with open(TMP_TESTS_FILE, "a", encoding="utf-8") as fo:
-        fo.write(result)
+        fo.write(result.replace('\r', '\\r'))
 
 
 def run_system_command(cmnd):
@@ -321,7 +345,7 @@ def read_local(src, silent=False):
         lcl_src = LOCAL_LIBRARY_FILE() % src
     elif path.exists(PACKAGE_CACHE_FILE % src):
         lcl_src = PACKAGE_CACHE_FILE % src
-    my_print(lcl_src.replace(CURRENT_DIR, "CURRENT_DIR").replace(PARENT_DIR, "PARENT_DIR").replace('\\', '/'), silent=silent)
+    my_print(update_src(lcl_src), silent=silent)
     with open(lcl_src, "r", encoding="utf-8") as fo:
         return fo.read()
 
@@ -393,6 +417,7 @@ def exists_local(filename) -> bool:
 
 
 def read_questions(root, src):
+    global GAME_RUNNING
     parent_xml = None
 
     # @write_time
@@ -472,11 +497,17 @@ def read_questions(root, src):
             quest = i.find('Question').text
             tx = f"{quest_number}/{num}) {quest}"
             reading = Thread(target=read_text_aloud, args=(quest,))
-            reading.start()
-            fin_pic(tx)
+            fin_pic(quest)
+            if SUPPRESS_TEXT():
+                handouts = ' '.join(f'[{val}]' for val in get_handouts(quest))
+                tx = f"{quest_number}/{num}) {handouts}"
             pr(tx)
+            GAME_RUNNING = True
+            reading.start()
+
             mid_input()
             kill_reading_aloud()
+            GAME_RUNNING = False
             reading.join()
 
             answer = i.find('Answer').text
@@ -552,9 +583,12 @@ if __name__ == '__main__':
         check_connection = None
         init_testing()
         init_debug()
+        init_game()
+        
         check_connection = Thread(target=update_intrenet_on)
         check_connection.start()
         next_tour = None
+        my_print(update_src(sys_argv[0]), *(sys_argv[1:]), silent=True)
         
         if os_path.exists(UNFINISHED_FILE_READ()):
             with open(UNFINISHED_FILE_READ(), "r") as fi:
@@ -598,6 +632,7 @@ if __name__ == '__main__':
         my_print("Ctrl+C")
     finally:
         RUNNING = False
+        GAME_RUNNING = False
         kill_reading_aloud()
         if check_connection is not None:
             check_connection.join()
