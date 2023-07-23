@@ -61,6 +61,100 @@ def has_pictures(txt: str) -> bool:
 
 
 def read_text_aloud(txt: str):
+    class TransNode:
+        _root = None
+        _letters = set()
+        _words = []
+
+        def __init__(self, word_num: int, dep: int):
+            self._children = dict()
+            self._suf = None
+            self._term = False
+            self._change = None
+            self._word_num = word_num
+            self._dep = dep
+
+        def __str__(self):
+            return f"term={self._term}, change={self._change!r}, word={self._words[self._word_num]!r}, dep={self._dep}, pref={self._words[self._word_num][:self._dep]!r}"
+
+        def _get_child(self, ch):
+            return self._children.get(ch, self._root)
+
+        @classmethod
+        def _init_root(cls):
+            if cls._root is None:
+                cls._root = TransNode(0, 0)
+
+        @classmethod
+        def add_str(cls, word, change):
+            from re import sub
+            word = sub("\s+", ' ', word).strip()
+            word_num = len(cls._words)
+            cls._words.append(word)
+            cls._init_root()
+            
+            cur = cls._root
+            for ind, let in enumerate(word):
+                cls._letters.add(let)
+                if cur._children.get(let, None) is None:
+                    cur._children[let] = TransNode(word_num, ind + 1)
+                cur = cur._children[let]
+            cur._term = True
+            cur._change = change
+
+        @classmethod
+        def build_aho(cls):
+            cls._init_root()
+
+            root = cls._root
+            preroot = TransNode(-1, 0)
+            root._suf = preroot
+            preroot._suf = preroot
+
+            from collections import deque
+            q = deque()
+            q.append(root)
+            while len(q) > 0:
+                cur = q.popleft()
+
+                for let in cls._letters:
+                    if cur._children.get(let, None) is not None:
+                        cur._children[let]._suf = cur._suf._get_child(let)
+                        q.append(cur._children[let])
+                    else:
+                        cur._children[let] = cur._suf._get_child(let)
+
+        @classmethod
+        def go(cls, txt: str):
+            cls._init_root()
+            cur = cls._root
+
+            res = []
+            for let in txt:
+                nxt = cur._get_child(let)
+                if nxt is cur:
+                    res.append(let)
+                elif nxt._term:
+                    res.append(nxt._change)
+                    nxt = cls._root
+                elif nxt._dep <= cur._dep:
+                    cur_word = cls._words[cur._word_num]
+                    res.append(cur_word[:cur._dep - nxt._dep])
+                    if nxt is cls._root:
+                        res.append(let)
+                    else:
+                        res.append(cur_word[cur._dep - nxt._dep])
+                cur = nxt
+            return "".join(res)
+        
+        @classmethod
+        def init(cls, txt):
+            from re import compile, findall, DOTALL
+            c = compile("([\"']?[a-zA-Z][^а-яА-ЯёЁ\[]*[^\sа-яА-ЯёЁ\[])\s*\[([^\]]+)\]", DOTALL)
+            for i in findall(c, txt):
+                cls.add_str(*i)
+            cls.build_aho()
+
     def _read_text(txt: str) -> None:
         if not IS_READ_ALOUD():
             return
@@ -76,18 +170,18 @@ def read_text_aloud(txt: str):
             handouts = get_handouts(txt)
             txt = txt.replace("\r", "").replace("\n", " ").replace("\"", "\'").replace("«", "\'").replace("»", "\'").replace("\u0301", "")
             txt = txt.replace("<раздатка>", "<").replace("</раздатка>", ">")
+            TransNode.init(txt)
             res = []
             cnt = 0
-            st = 0
             b = (len(handouts) > 0) or has_pictures(txt)
-            for ind, c in enumerate(txt):
+            for c in txt:
                 if c in '([{<':
                     cnt += 1
                 elif cnt == 0:
                     res.append(c)
                 elif c in '}])>':
                     cnt -= 1
-            _read_text(f'{"Внимание, в вопросе есть раздаточный материал!    " if b else ""}{"".join(res)}')
+            _read_text(f'{"Внимание, в вопросе есть раздаточный материал!    " if b else ""}{TransNode.go("".join(res))}')
 
         if RUN_COUNTDOWN():
             from time import sleep
@@ -182,6 +276,14 @@ def key_input(txt: str, **kwargs) -> str:
                 add_layer(LAYERS.LOCAL_LIBRARY)
                 LOCAL_LIBRARY_FILE(TEST_SOURCE_FILE)
                 my_print("Local library is Tests")
+        elif result in SUPPRESS_AUTOSAVE_KEYS:
+            add_layer(LAYERS.SUPPRESS_AUTOSAVE)
+            if SUPPRESS_AUTOSAVE():
+                SUPPRESS_AUTOSAVE(False)
+                my_print("Autosave Suppression is turned OFF")
+            else:
+                SUPPRESS_AUTOSAVE(True)
+                my_print("Autosave Suppression is turned ON")
         else:
             return res
 
@@ -593,8 +695,7 @@ if __name__ == '__main__':
         if os_path.exists(UNFINISHED_FILE_READ()):
             with open(UNFINISHED_FILE_READ(), "r") as fi:
                 inp = fi.read()
-            pack = inp.split('\n', 1)[0]
-            if AUTOPLAY_UNFINSHED() or inp == "" or input(f"Press ENTER if you want to continue playing {pack}: ") == "":
+            if AUTOPLAY_UNFINSHED() or inp == "" or input(f"Press ENTER if you want to continue playing the last unfinished package: ") == "":
                 Reader(inp)
                 if AUTOPLAY_UNFINSHED():
                     if not FORCE_LOCAL():
@@ -677,6 +778,6 @@ if __name__ == '__main__':
 # DONE: Added reading from cache/memory if there exists package
 # DONE: Added testing
 # DONE: Added test creator (existing questions from different packages by its names into one new package)
-# TODO: add replacing from transliteration in square brackets
+# DONE: Added replacing from transliteration in square brackets
 # TODO: add game mode (timer, no text, only reading aloud and pictures)
 # TODO: add duplets and blitz to reading and showing pictures (u20let.1/6)

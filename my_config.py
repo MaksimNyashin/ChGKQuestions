@@ -11,7 +11,8 @@ parse_args = lambda *args: len(sys_argv) > 1 and sys_argv[1] in args
 DEBUG =  parse_args("-d", "-D")
 TESTING = parse_args("-t", "-T")
 GAME = parse_args("-g", "-G")
-print(f"{DEBUG=}, {TESTING=}, {GAME=}")
+DEBUG_UNFINSHED = len(sys_argv) > 2 and sys_argv[2] in ('-du', )
+print(f"{DEBUG=}, {TESTING=}, {GAME=}, {DEBUG_UNFINSHED=}")
 
 
 class LAYERS(Enum):
@@ -22,6 +23,7 @@ class LAYERS(Enum):
     KEY_READ_ALOUD = "key_read_aloud"
     GAME = "game"
     LOCAL_LIBRARY = "local_library"
+    SUPPRESS_AUTOSAVE = "suppress_autosave"
     CUSTOM = "custom"  # can't be used in release code, only whule writing
 
 
@@ -89,7 +91,7 @@ def init_game():
     IS_READ_ALOUD(True)
     RUN_COUNTDOWN(True)
     SAVE_CACHE_PACKAGE(True)
-    SUPPRESS_AUTOSAVE(True) # TODO
+    SUPPRESS_AUTOSAVE(False)
     SUPPRESS_GOOD(False)
     SUPPRESS_TEXT(True)
     SUPPESS_PICS(False)
@@ -316,7 +318,10 @@ TEST_SOURCE_FILE = os_path.join(TESTS_SRC_DIR, "%s.xml")
 TEST_SOURCE_BASE_FILE = os_path.join(TESTS_SRC_DIR, f"%s{TEST_SOURCE_BASE_EXTENSION}")
 TMP_DIFF_FILE = os_path.join(TMP_DIR, "diff.txt")
 TMP_TESTS_FILE = os_path.join(TMP_TESTS_DIR, "test.result")
-UNFINISHED_FILE_READ(os_path.join(TMP_DIR, "unfinished.txt"))
+if DEBUG_UNFINSHED:
+    UNFINISHED_FILE_READ(os_path.join(TMP_DIR, "unfinished_debug.txt"))
+else:
+    UNFINISHED_FILE_READ(os_path.join(TMP_DIR, "unfinished.txt"))
 UNFINISHED_FILE_WRITE = os_path.join(TMP_DIR, "unfinished.txt")
 
 
@@ -332,6 +337,7 @@ DEFAULT_XML = f"<tournament><Title>{UNKNOWN_PACKAGE}</Title></tournament>"
 MUTE_KEYS = ("-m", "-ь")
 UNMUTE_KEYS = ("-u", "-um", "-г", "-гь")
 DEBUG_TESTS_KEYS = ('-dt', "-ве")
+SUPPRESS_AUTOSAVE_KEYS = ('-sa', '-ыф')
 
 COUNTDOWN_TIME = 60
 
