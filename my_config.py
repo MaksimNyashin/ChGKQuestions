@@ -329,8 +329,6 @@ for folder in FOLDERS_TO_CREATE:
     if not os_path.exists(folder):
         os_mkdir(folder)
 
-DB_NAME = "mydatabase.db"
-
 UNKNOWN_PACKAGE = "Unknown package"
 DEFAULT_XML = f"<tournament><Title>{UNKNOWN_PACKAGE}</Title></tournament>"
 

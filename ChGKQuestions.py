@@ -2,17 +2,12 @@
 from my_config import *
 import requests
 import xml.etree.ElementTree as Et
-from sqlite3 import connect
 from traceback import format_exc
 from threading import Thread
 from os import path, system as os_system
 
 # requests, urllib3 instlled to wsl
 import re
-
-
-conn = connect(DB_NAME)
-cursor = conn.cursor()
 
 
 def write_time(func):
@@ -418,27 +413,6 @@ def fin_pic(sss):
                 copy_to_buffer(uri)
 
 
-
-def create_table(name, arr):
-    return
-    name = upd(name)
-    cursor.execute("""SELECT name FROM sqlite_master WHERE type='table' AND name='%s'""" % name)
-    qq = cursor.fetchone()
-    my_print(name, end=": ")
-    if qq is None:
-        sss = """CREATE TABLE IF NOT EXISTS '%s'(id int, link text)""" % name
-        cursor.execute(sss)
-        zz = ", ".join(["({0}, \"{1}\")".format(i, upd(arr[i])) for i in range(len(arr))])
-        # for i in range(len(arr)):
-        #     cursor.execute("""INSERT INTO %s VALUES(?, ?)""" % name, (i, arr[i]))
-        #     conn.commit()
-        cursor.execute("""INSERT INTO '%s' VALUES %s;""" % (name, zz))
-        conn.commit()
-        my_print("added")
-    else:
-        my_print("already exists")
-
-
 @write_time
 def read_local(src, silent=False):
     if not exists_local(src):
@@ -500,7 +474,6 @@ def read_page(src=None, name=None):
     # print(ar)
     import random
     if len(ar) > 0:
-        create_table(name, ar)
         qw = random.randint(0, len(ar) - 1)
         return read_page(ar[qw], ar[qw])
     else:
@@ -779,5 +752,5 @@ if __name__ == '__main__':
 # DONE: Added testing
 # DONE: Added test creator (existing questions from different packages by its names into one new package)
 # DONE: Added replacing from transliteration in square brackets
-# TODO: add game mode (timer, no text, only reading aloud and pictures)
+# DONE: Added game mode (timer, no text, only reading aloud and pictures)
 # TODO: add duplets and blitz to reading and showing pictures (u20let.1/6)
