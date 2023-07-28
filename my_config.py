@@ -12,6 +12,7 @@ DEBUG =  parse_args("-d", "-D")
 TESTING = parse_args("-t", "-T")
 GAME = parse_args("-g", "-G")
 DEBUG_UNFINSHED = len(sys_argv) > 2 and sys_argv[2] in ('-du', )
+EXPERIMENTS = False
 print(f"{DEBUG=}, {TESTING=}, {GAME=}, {DEBUG_UNFINSHED=}")
 
 
@@ -38,13 +39,14 @@ def init_testing():
     add_layer(LAYERS.TESTING)
     AUTOPLAY_UNFINSHED(True)
     FORCE_LOCAL(True)
-    IS_READ_ALOUD(False)
+    IS_READ_ALOUD(True)
     LOCAL_LIBRARY_FILE(TEST_SOURCE_FILE)
     RUN_COUNTDOWN(False)
     SAVE_CACHE_PACKAGE(False)
     SUPPRESS_AUTOSAVE(True)
     SUPPRESS_GOOD(True)
     SUPPESS_PICS(True)
+    SUPPRESS_READING(True)
     SUPPRESS_RESULTS(True)
     SUPPRESS_TEXT(False)
     UNFINISHED_FILE_READ(TEST_FILE % argv[2])
@@ -59,12 +61,13 @@ def init_debug():
     add_layer(LAYERS.DEBUG)
     AUTOPLAY_UNFINSHED(True)
     FORCE_LOCAL(True)
-    IS_READ_ALOUD(False)
+    IS_READ_ALOUD(True)
     RUN_COUNTDOWN(False)
     SAVE_CACHE_PACKAGE(False)
     SUPPRESS_AUTOSAVE(True)
     SUPPRESS_GOOD(True)
     SUPPESS_PICS(True)
+    SUPPRESS_READING(True)
     SUPPRESS_RESULTS(True)
     SUPPRESS_TEXT(False)
     UNIFY_DATE(True)
@@ -93,6 +96,7 @@ def init_game():
     SAVE_CACHE_PACKAGE(True)
     SUPPRESS_AUTOSAVE(False)
     SUPPRESS_GOOD(False)
+    SUPPRESS_READING(False)
     SUPPRESS_TEXT(True)
     SUPPESS_PICS(False)
     SUPPRESS_RESULTS(False)
@@ -196,7 +200,7 @@ def FORCE_LOCAL(name, new_val: Optional[bool] = None):
 
 @name_wrap
 def IS_READ_ALOUD(name, new_val: Optional[bool] = None):
-    return _Config.process(name, new_val)and CURRENT_SYSTEM == SYSTEM_WINDOWS
+    return (_Config.process(name, new_val) or DEBUG or TESTING)
 
 @name_wrap
 def LOCAL_LIBRARY_FILE(name, new_val: Optional[str] = None):
@@ -221,6 +225,10 @@ def SUPPRESS_GOOD(name, new_val: Optional[bool] = None):
 @name_wrap
 def SUPPESS_PICS(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
+
+@name_wrap
+def SUPPRESS_READING(name, new_val: Optional[bool] = None):
+    return _Config.process(name, new_val) or CURRENT_SYSTEM != SYSTEM_WINDOWS
 
 @name_wrap
 def SUPPRESS_RESULTS(name, new_val: Optional[bool] = None):
@@ -273,6 +281,7 @@ FORCE_LOCAL(False)
 SUPPRESS_AUTOSAVE(False)
 SUPPRESS_GOOD(False)
 SUPPESS_PICS(False)
+SUPPRESS_READING(False)  # don't touch, it is used only in debuging and testing, use IS_READ_ALOUD
 SUPPRESS_RESULTS(False)
 SUPPRESS_TEXT(False)
 UNIFY_DATE(False)
@@ -338,6 +347,7 @@ DEBUG_TESTS_KEYS = ('-dt', "-ве")
 SUPPRESS_AUTOSAVE_KEYS = ('-sa', '-ыф')
 
 COUNTDOWN_TIME = 60
+TIME_TO_WAIT = 0.01
 
 
 class COLORS:
