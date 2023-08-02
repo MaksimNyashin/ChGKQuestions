@@ -6,26 +6,17 @@ from sys import argv as sys_argv, modules as sys_modules
 from enum import Enum
 from datetime import date as dt_date
 
+
+# Config mods (don't touch)
+
 parse_args = lambda *args: len(sys_argv) > 1 and sys_argv[1] in args
 
-DEBUG =  parse_args("-d", "-D")
+DEBUG = parse_args("-d", "-D")
 TESTING = parse_args("-t", "-T")
 GAME = parse_args("-g", "-G")
-DEBUG_UNFINSHED = len(sys_argv) > 2 and sys_argv[2] in ('-du', )
+DEBUG_UNFINSHED = len(sys_argv) > 2 and sys_argv[2] in ('-du',)
 EXPERIMENTS = False
 print(f"{DEBUG=}, {TESTING=}, {GAME=}, {DEBUG_UNFINSHED=}")
-
-
-class LAYERS(Enum):
-    DEBUG = "debug"
-    TESTING = "testing"
-    OUTER = "outer"
-    READER = "reader"
-    KEY_READ_ALOUD = "key_read_aloud"
-    GAME = "game"
-    LOCAL_LIBRARY = "local_library"
-    SUPPRESS_AUTOSAVE = "suppress_autosave"
-    CUSTOM = "custom"  # can't be used in release code, only whule writing
 
 
 def init_testing():
@@ -33,7 +24,6 @@ def init_testing():
         pass
     if not TESTING:
         return
-    from sys import argv
     if len(argv) < 3:
         raise IndexError("No test number found during launching testing mode")
     add_layer(LAYERS.TESTING)
@@ -105,6 +95,21 @@ def init_game():
     _Config.write_dict_diff()
 
 
+# Config and functions for changeable options (don't touch)
+
+
+class LAYERS(Enum):
+    DEBUG = "debug"
+    TESTING = "testing"
+    OUTER = "outer"
+    READER = "reader"
+    KEY_READ_ALOUD = "key_read_aloud"
+    GAME = "game"
+    LOCAL_LIBRARY = "local_library"
+    SUPPRESS_AUTOSAVE = "suppress_autosave"
+    CUSTOM = "custom"  # can't be used in release code, only whule writing
+
+
 class _Config:
     _instances = []
     LAYER = 'layer'
@@ -143,7 +148,7 @@ class _Config:
         if ind == 0:
             raise ValueError(f"No layer with name {layer.value!r} found in the Config history")
         ind -= 1
-        
+
         tmp = self._history.pop(ind)
         keys = set(tmp.keys())
         # print(tmp)
@@ -183,80 +188,106 @@ class _Config:
     @classmethod
     def write_dict_diff(cls):
         from ChGKQuestions import my_print
-        my_print(cls.process(cls.LAYER, None).value, set(cls.get_instance()._current.keys()) - set(cls.get_instance()._history[-1].keys()), sep=": ", silent=True)
+
+        my_print(
+            cls.process(cls.LAYER, None).value,
+            set(cls.get_instance()._current.keys()) - set(cls.get_instance()._history[-1].keys()),
+            sep=": ",
+            silent=True,
+        )
+
 
 def name_wrap(func):
     def wrapper(*args, **kwargs):
         return func(func.__name__, *args, **kwargs)
+
     return wrapper
+
 
 @name_wrap
 def AUTOPLAY_UNFINSHED(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
+
 @name_wrap
 def FORCE_LOCAL(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
+
 @name_wrap
 def IS_READ_ALOUD(name, new_val: Optional[bool] = None):
-    return (_Config.process(name, new_val) or DEBUG or TESTING)
+    return _Config.process(name, new_val) or DEBUG or TESTING
+
 
 @name_wrap
 def LOCAL_LIBRARY_FILE(name, new_val: Optional[str] = None):
     return _Config.process(name, new_val)
 
+
 @name_wrap
 def RUN_COUNTDOWN(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
+
 
 @name_wrap
 def SAVE_CACHE_PACKAGE(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
+
 @name_wrap
 def SUPPRESS_AUTOSAVE(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
+
 
 @name_wrap
 def SUPPRESS_GOOD(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
+
 @name_wrap
 def SUPPESS_PICS(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
+
 
 @name_wrap
 def SUPPRESS_READING(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val) or CURRENT_SYSTEM != SYSTEM_WINDOWS
 
+
 @name_wrap
 def SUPPRESS_RESULTS(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
+
 
 @name_wrap
 def SUPPRESS_TEXT(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
+
 @name_wrap
 def UNFINISHED_FILE_READ(name, new_val: Optional[str] = None):
     return _Config.process(name, new_val)
+
 
 @name_wrap
 def UNIFY_DATE(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
+
 @name_wrap
 def WRITE_TESTS_OUTPUT(name, new_val: Optional[bool] = None):
     return _Config.process(name, new_val)
 
+
 def add_layer(layer: LAYERS):
     _Config.add_layer(layer)
+
 
 def pop_layer(layer: LAYERS):
     _Config.pop_layer(layer)
 
 
+# Default values for config options (can be cahnged)
 
 CURRENT_SYSTEM = platform_system()
 
@@ -267,6 +298,7 @@ SYSTEM_MACOS = "Darwin"
 if CURRENT_SYSTEM == SYSTEM_WINDOWS:
     try:
         import colorama
+
         colorama.init()
     except ModuleNotFoundError:
         pass

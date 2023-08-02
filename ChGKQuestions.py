@@ -12,6 +12,7 @@ import re
 
 def write_time(func):
     import time
+
     def wrapper(*args, **kwargs):
         start = time.time()
         return_value = func(*args, **kwargs)
@@ -25,6 +26,7 @@ def write_time(func):
 
 def update_intrenet_on():
     from time import sleep
+
     global INTERNET_ON, RUNNING
     cnt = SECONDS_PER_REQUEST - 1
     try:
@@ -76,11 +78,12 @@ class TransNode:
 
     def add_str(self, word, change):
         from re import sub
+
         word = sub("\s+", ' ', word).strip()
         root = self
         word_num = len(root._words)
         root._words.append(word)
-        
+
         cur = root
         for ind, let in enumerate(word):
             root._letters.add(let)
@@ -91,12 +94,13 @@ class TransNode:
         cur._change = change
 
     def build_aho(self):
+        from collections import deque
+
         root = self
         preroot = TransNode(-1, 0)
         root._suf = preroot
         preroot._suf = preroot
 
-        from collections import deque
         q = deque()
         q.append(root)
         while len(q) > 0:
@@ -123,23 +127,25 @@ class TransNode:
                 nxt = root
             elif nxt._dep <= cur._dep:
                 cur_word = root._words[cur._word_num]
-                res.append(cur_word[:cur._dep - nxt._dep])
+                res.append(cur_word[: cur._dep - nxt._dep])
                 if nxt is root:
                     res.append(let)
                 else:
                     res.append(cur_word[cur._dep - nxt._dep])
             cur = nxt
         return "".join(res)
-    
+
     @classmethod
     def init(cls, txt):
         from re import compile, findall, DOTALL
+
         c = compile("([\"']?[a-zA-Z][^а-яА-ЯёЁ\[]*[^\sа-яА-ЯёЁ\[])\s*\[([^\]]+)\]", DOTALL)
         root = TransNode(0, 0)
         for i in findall(c, txt):
             root.add_str(*i)
         root.build_aho()
         return root
+
 
 def read_text_aloud(txt: str):
     def _read_text(txt: str) -> None:
@@ -155,7 +161,14 @@ def read_text_aloud(txt: str):
     try:
         if IS_READ_ALOUD():
             handouts = get_handouts(txt)
-            txt = txt.replace("\r", "").replace("\n", " ").replace("\"", "\'").replace("«", "\'").replace("»", "\'").replace("\u0301", "")
+            txt = (
+                txt.replace("\r", "")
+                .replace("\n", " ")
+                .replace("\"", "\'")
+                .replace("«", "\'")
+                .replace("»", "\'")
+                .replace("\u0301", "")
+            )
             txt = txt.replace("<раздатка>", "<").replace("</раздатка>", ">")
             trans_node_root = TransNode.init(txt)
             res = []
@@ -171,6 +184,7 @@ def read_text_aloud(txt: str):
             str_to_read = re.sub("\s\s+", " ", trans_node_root.go(''.join(res)).strip())
             if SUPPRESS_READING():
                 from time import sleep
+
                 sleep(TIME_TO_WAIT)
                 my_print(f"READING:\n'''{str_to_read}'''")
             else:
@@ -178,12 +192,13 @@ def read_text_aloud(txt: str):
 
         if RUN_COUNTDOWN():
             from time import sleep
+
             for i in range(COUNTDOWN_TIME + 1):
                 if not GAME_RUNNING:
                     my_print()
                     return
                 j = COUNTDOWN_TIME - i
-                my_print(f"\r{j // 60}:{j % 60:0>2}", end = '', flush=True)
+                my_print(f"\r{j // 60}:{j % 60:0>2}", end='', flush=True)
                 sleep(1)
             countdown_end = "Время вышло, сдавайте ваши ответы"
             my_print(f"\r{countdown_end}")
@@ -195,9 +210,8 @@ def read_text_aloud(txt: str):
         my_print("read_text_aloud: Ctrl+C")
 
 
-
 class Reader:
-    _instances=[]
+    _instances = []
 
     def __init__(self, lines: str):
         self._pos = 0
@@ -280,8 +294,10 @@ def key_input(txt: str, **kwargs) -> str:
         else:
             return res
 
+
 def update_src(text: str) -> str:
     return text.replace(CURRENT_DIR, "CURRENT_DIR").replace(PARENT_DIR, "PARENT_DIR").replace('\\', '/')
+
 
 def my_print(*args, **kwargs):
     if kwargs.get("silent", False) != True:
@@ -304,8 +320,9 @@ def kill_reading_aloud():
 
 
 class ResultSaver:
-    def __init__(self, number: int,  name: str):
+    def __init__(self, number: int, name: str):
         import datetime
+
         self._number = number
         self._name = name
         self._result = 0
@@ -318,7 +335,7 @@ class ResultSaver:
 
     @write_time
     def set_author(self, num: int, author: str) -> None:
-        while len(author) > 0 and not('а' <= author[-1] <= 'я'):
+        while len(author) > 0 and not ('а' <= author[-1] <= 'я'):
             author = author[:-1]
         if 0 < num <= self._number:
             self._authors[author] = self._authors.get(author, 0) | (1 << (num - 1))
@@ -330,8 +347,9 @@ class ResultSaver:
             self._last = max(self._last, num)
 
     def to_json(self) -> str:
-        import json
-        return json.dumps(self.__dict__)
+        from json import dumps
+
+        return dumps(self.__dict__)
 
     @write_time
     def write(self) -> None:
@@ -363,12 +381,18 @@ def is_internet_on():
 @write_time
 def fin_pic(sss):
     prefix = "   !!!: "
+
     def open_chrome(val) -> bool:
         browsers = [
             ["chrome", "Google Chrome"],
             ["firefox", "Firefox"],
             ["browser", "Yandex Browser"],
-            [{SYSTEM_WINDOWS: "start", SYSTEM_LINUX: "xdg-open", SYSTEM_MACOS: "open"}.get(CURRENT_SYSTEM, "Unknown System"), "Default browser"],
+            [
+                {SYSTEM_WINDOWS: "start", SYSTEM_LINUX: "xdg-open", SYSTEM_MACOS: "open"}.get(
+                    CURRENT_SYSTEM, "Unknown System"
+                ),
+                "Default browser",
+            ],
         ]
         for browser in browsers:
             com2 = f"{browser[0]} {val}"
@@ -380,6 +404,7 @@ def fin_pic(sss):
 
     def copy_to_buffer(val):
         import clipboard
+
         clipboard.copy(val)
         my_print(f"{prefix}{val} is copied to buffer")
 
@@ -441,6 +466,7 @@ def read_global(src, silent=False):
         INTERNET_ON = False
         return None
 
+
 def read_page(src=None, name=None):
     if src[0] != "$" and not is_internet_on():
         return read_page("$" + src, "$" + name)
@@ -471,6 +497,7 @@ def read_page(src=None, name=None):
         ar.append(i.text)
     # print(ar)
     import random
+
     if len(ar) > 0:
         qw = random.randint(0, len(ar) - 1)
         return read_page(ar[qw], ar[qw])
@@ -511,7 +538,7 @@ def read_questions(root, src):
             if nxx != -1:
                 nx = nxx
             if nx != -1 and p + si < len(st):
-                my_print(st[p: nx])
+                my_print(st[p:nx])
             else:
                 my_print(st[p:])
                 break
@@ -546,7 +573,6 @@ def read_questions(root, src):
             if not exists_local(f"{parent_src}.{num}"):
                 Thread(target=read_global, args=(f"{parent_src}.{num}", True)).start()
         return f"{parent_src}.{tour_num}" if tour_num in lst else None
-
 
     title = next(root.iter("Title"), None)
     if title is None or title.text == UNKNOWN_PACKAGE:
@@ -597,7 +623,7 @@ def read_questions(root, src):
 
             pr(f"Автор: {i.find('Authors').text}")
             result_saver.set_author(quest_number, " ".join(i.find("Authors").text.split(' ', 2)[:2]))
-            
+
             saved = False
             while True:
                 if not saved:
@@ -640,7 +666,6 @@ def read_questions(root, src):
         raise ki
 
 
-
 if __name__ == '__main__':
     # fin_pic("<Question>[Раздаточный материал: (pic: https://i.imgur.com/huytXYR.png)] Интересно, что один бакенбард этого персонажа компьютерной игры меньше другого, что хорошо заметно и в момент превращения. Назовите имя этого персонажа.</Question>")
 
@@ -657,21 +682,26 @@ if __name__ == '__main__':
         init_testing()
         init_debug()
         init_game()
-        
+
         check_connection = Thread(target=update_intrenet_on)
         check_connection.start()
         next_tour = None
         my_print(update_src(sys_argv[0]), *(sys_argv[1:]), silent=True)
-        
+
         if os_path.exists(UNFINISHED_FILE_READ()):
             with open(UNFINISHED_FILE_READ(), "r") as fi:
                 inp = fi.read()
-            if AUTOPLAY_UNFINSHED() or inp == "" or input(f"Press ENTER if you want to continue playing the last unfinished package: ") == "":
+            if (
+                AUTOPLAY_UNFINSHED()
+                or inp == ""
+                or input(f"Press ENTER if you want to continue playing the last unfinished package: ") == ""
+            ):
                 Reader(inp)
                 if AUTOPLAY_UNFINSHED():
                     if not FORCE_LOCAL():
                         my_print("Looking for unfinished game...", end="", flush=True)
                         from time import sleep
+
                         sleep(1.3)
                         if USE_CONTROL_CHARACTERS:
                             my_print(end="\r\033[K")
@@ -712,7 +742,7 @@ if __name__ == '__main__':
     # cursor.execute("""SELECT * FROM links""")
     # print(cursor.fetchall())
     # https://db.chgk.net/tour/holgo2011_u.2/xml
-    
+
 # DONE add playing by package name
 # DONE add playing from inner memory
 # ---TDOD print name of authors before first question
