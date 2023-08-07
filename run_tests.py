@@ -58,7 +58,7 @@ def run_test(num, name):
 
     cnt = 0
     with open(TMP_DIFF_FILE, "a", encoding="utf-8") as fo:
-        for line in difflib.unified_diff(canon_data, result_data, fromfile=f"{name}.canon", tofile="test_result"):
+        for line in difflib.unified_diff(canon_data, result_data, fromfile=f"{name}.canon", tofile="test_result", n=0):
             cnt += 1
             fo.write(line)
             fo.write("\n")

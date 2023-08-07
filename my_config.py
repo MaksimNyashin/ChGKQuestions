@@ -24,7 +24,7 @@ def init_testing():
         pass
     if not TESTING:
         return
-    if len(argv) < 3:
+    if len(sys_argv) < 3:
         raise IndexError("No test number found during launching testing mode")
     add_layer(LAYERS.TESTING)
     AUTOPLAY_UNFINSHED(True)
@@ -39,7 +39,7 @@ def init_testing():
     SUPPRESS_READING(True)
     SUPPRESS_RESULTS(True)
     SUPPRESS_TEXT(False)
-    UNFINISHED_FILE_READ(TEST_FILE % argv[2])
+    UNFINISHED_FILE_READ(TEST_FILE % sys_argv[2])
     UNIFY_DATE(True)
     WRITE_TESTS_OUTPUT(True)
     _Config.write_dict_diff()
