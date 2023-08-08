@@ -7,14 +7,14 @@ from enum import Enum
 from datetime import date as dt_date
 
 
-# Config mods (don't touch)
+# ========== Config mods (don't touch) ==========
 
 parse_args = lambda *args: len(sys_argv) > 1 and sys_argv[1] in args
 
 DEBUG = parse_args("-d", "-D")
 TESTING = parse_args("-t", "-T")
 GAME = parse_args("-g", "-G")
-DEBUG_UNFINSHED = len(sys_argv) > 2 and sys_argv[2] in ('-du',)
+DEBUG_UNFINSHED = len(sys_argv) > 2 and sys_argv[2] in ('-du', '-ud')
 EXPERIMENTS = False
 print(f"{DEBUG=}, {TESTING=}, {GAME=}, {DEBUG_UNFINSHED=}")
 
@@ -95,7 +95,7 @@ def init_game():
     _Config.write_dict_diff()
 
 
-# Config and functions for changeable options (don't touch)
+# ========== Config and functions for changeable options (don't touch) ==========
 
 
 class LAYERS(Enum):
@@ -287,7 +287,7 @@ def pop_layer(layer: LAYERS):
     _Config.pop_layer(layer)
 
 
-# Default values for config options (can be cahnged)
+# ========== System settings (don't touch) ==========
 
 CURRENT_SYSTEM = platform_system()
 
@@ -306,9 +306,11 @@ USE_CONTROL_CHARACTERS = "colorama" in sys_modules.keys() or CURRENT_SYSTEM != S
 
 DB_CHGK = "https://db.chgk.net"
 
+
+# ========== Default values for config options (can be changed) ==========
+
 DEFAULT_DATE = dt_date(1970, 1, 1)
 
-MEASURE_TIME = False and DEBUG
 FORCE_LOCAL(False)
 SUPPRESS_AUTOSAVE(False)
 SUPPRESS_GOOD(False)
@@ -329,10 +331,7 @@ RE_DB_SITE = re_compile("pic:[ \n](\d+\.(png|jpg|jpeg|gif|bmp))", re_IGNORECASE)
 RE_RAZDATOCHNYI_MATERIAL = re_compile("\s*\[Раздаточный материал: (.+)\]", re_DOTALL)
 RE_RAZDATKA = re_compile("\s*<раздатка>(.+)<\/раздатка>", re_DOTALL)
 
-INTERNET_ON = False
-RUNNING = True
-SECONDS_PER_REQUEST = 15
-GAME_RUNNING = True
+CONSOLE_WIDTH = 80
 
 CURRENT_DIR = os_path.dirname(os_path.abspath(__file__))
 PARENT_DIR = os_path.dirname(CURRENT_DIR)
@@ -365,6 +364,20 @@ else:
     UNFINISHED_FILE_READ(os_path.join(TMP_DIR, "unfinished.txt"))
 UNFINISHED_FILE_WRITE = os_path.join(TMP_DIR, "unfinished.txt")
 
+MUTE_KEYS = ("-m", "-ь")
+UNMUTE_KEYS = ("-u", "-um", "-г", "-гь")
+DEBUG_TESTS_KEYS = ('-dt', "-ве")
+SUPPRESS_AUTOSAVE_KEYS = ('-sa', '-ыф')
+
+
+# ========== Other settings (don't touch) ==========
+
+INTERNET_ON = False
+RUNNING = True
+SECONDS_PER_REQUEST = 15
+GAME_RUNNING = True
+
+MEASURE_TIME = False and DEBUG
 
 for folder in FOLDERS_TO_CREATE:
     if not os_path.exists(folder):
@@ -373,15 +386,7 @@ for folder in FOLDERS_TO_CREATE:
 UNKNOWN_PACKAGE = "Unknown package"
 DEFAULT_XML = f"<tournament><Title>{UNKNOWN_PACKAGE}</Title></tournament>"
 
-MUTE_KEYS = ("-m", "-ь")
-UNMUTE_KEYS = ("-u", "-um", "-г", "-гь")
-DEBUG_TESTS_KEYS = ('-dt', "-ве")
-SUPPRESS_AUTOSAVE_KEYS = ('-sa', '-ыф')
-
-COUNTDOWN_TIME = 60
 TIME_TO_WAIT = 0.01
-
-CONSOLE_WIDTH = 80
 
 
 class COLORS:

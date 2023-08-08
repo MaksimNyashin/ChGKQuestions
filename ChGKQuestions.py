@@ -5,6 +5,8 @@ import xml.etree.ElementTree as Et
 from traceback import format_exc
 from threading import Thread
 from os import path, system as os_system
+from abc import ABC
+from typing import Tuple, List
 
 # requests, urllib3 instlled to wsl
 import re
@@ -47,14 +49,6 @@ def update_intrenet_on():
     except KeyboardInterrupt:
         my_print("update_internet_on: Ctrl+C")
         pass
-
-
-def get_handouts(txt: str):
-    return re.findall(RE_RAZDATOCHNYI_MATERIAL, txt) + re.findall(RE_RAZDATKA, txt)
-
-
-def has_pictures(txt: str) -> bool:
-    return len(re.findall(RE_SITE, txt)) + len(re.findall(RE_DB_SITE, txt)) > 0
 
 
 class TransNode:
@@ -150,69 +144,6 @@ class TransNode:
         return root
 
 
-def read_text_aloud(txt: str):
-    def _read_text(txt: str) -> None:
-        if not IS_READ_ALOUD():
-            return
-        # my_print(txt)
-        # return
-        readable_text = f'CreateObject("SAPI.SpVoice").Speak "{txt}"'
-        with open(READ_ALOUD_FILE, "w") as fo:
-            fo.write(readable_text)
-        os_system(READ_ALOUD_FILE)
-
-    try:
-        if IS_READ_ALOUD():
-            handouts = get_handouts(txt)
-            txt = (
-                txt.replace("\r", "")
-                .replace("\n", " ")
-                .replace("\"", "\'")
-                .replace("«", "\'")
-                .replace("»", "\'")
-                .replace("\u0301", "")
-            )
-            txt = txt.replace("<раздатка>", "<").replace("</раздатка>", ">")
-            trans_node_root = TransNode.init(txt)
-            res = []
-            cnt = 0
-            b = (len(handouts) > 0) or has_pictures(txt)
-            for c in txt:
-                if c in '([{<':
-                    cnt += 1
-                elif cnt == 0:
-                    res.append(c)
-                elif c in '}])>':
-                    cnt -= 1
-            str_to_read = re.sub("\s\s+", " ", trans_node_root.go(''.join(res)).strip())
-            if SUPPRESS_READING():
-                from time import sleep
-
-                sleep(TIME_TO_WAIT)
-                my_print(f"READING:\n'''{str_to_read}'''")
-            else:
-                _read_text(f'{"Внимание, в вопросе есть раздаточный материал!    " if b else ""}{str_to_read}')
-
-        if RUN_COUNTDOWN():
-            from time import sleep
-
-            for i in range(COUNTDOWN_TIME + 1):
-                if not GAME_RUNNING:
-                    my_print()
-                    return
-                j = COUNTDOWN_TIME - i
-                my_print(f"\r{j // 60}:{j % 60:0>2}", end='', flush=True)
-                sleep(1)
-            countdown_end = "Время вышло, сдавайте ваши ответы"
-            my_print(f"\r{countdown_end}")
-            _read_text(f"ПИИИИИП! {countdown_end}")
-    except Exception as e:
-        my_print(format_exc(), silent=True)
-        mid_input(f"ERROR: {e}")
-    except KeyboardInterrupt:
-        my_print("read_text_aloud: Ctrl+C")
-
-
 class Reader:
     _instances = []
 
@@ -299,6 +230,250 @@ def key_input(txt: str, **kwargs) -> str:
             return res
 
 
+class BaseQuestion(ABC):
+    def __init__(self, txts: Tuple[str, ...], **kwargs):
+        self._question_texts = txts
+        self._current_ind = 0
+        self._trans_node_root = None
+        self._init_trans_node()
+        self._after_txt = [
+            f"Ответ: {kwargs.get('Answer', '')}",
+            f"Зачёт: {kwargs.get('PassCriteria', '')}",
+            f"Комментарий: {kwargs.get('Comments', '')}",
+            f"Автор: {kwargs.get('Authors', '')}",
+        ]
+
+    def _get_current(self) -> str:
+        return (
+            self._question_texts[self._current_ind]
+            if self._current_ind < len(self._question_texts)
+            else self._after_txt[self._current_ind - len(self._question_texts)]
+        )
+
+    def _init_trans_node(self) -> None:
+        self._trans_node_root = TransNode.init(" ".join(self._question_texts))
+
+    def find_pictures(self) -> List[str]:
+        text = self._get_current()
+        if SUPPESS_PICS() or text is None:
+            return []
+
+        return [i[0] for i in re.findall(RE_SITE, text)] + [
+            f"{DB_CHGK}/images/db/{i[0]}" for i in re.findall(RE_DB_SITE, text)
+        ]
+
+    def get_audio_text(self) -> str:
+        text = self._trans_node_root.go(self._get_current()).translate(
+            str.maketrans(
+                {
+                    "\r": "",
+                    "\n": " ",
+                    "\"": "\'",
+                    "«": "\'",
+                    "»": "\'",
+                    "\u0301": "",
+                }
+            )
+        )
+        text = text.replace("<раздатка>", "<").replace("</раздатка>", ">")
+        res = []
+        cnt = 0
+        for c in text:
+            if c in '([{<':
+                cnt += 1
+            elif cnt == 0:
+                res.append(c)
+            elif c in '}])>':
+                cnt -= 1
+        return re.sub("\s\s+", " ", ''.join(res).strip())
+
+    def get_handouts(self) -> List[str]:
+        return re.findall(RE_RAZDATOCHNYI_MATERIAL, self._get_current()) + re.findall(RE_RAZDATKA, self._get_current())
+
+    def has_pictures(self) -> bool:
+        return len(re.findall(RE_SITE, self._get_current())) + len(re.findall(RE_DB_SITE, self._get_current())) > 0
+
+    def _print_text(self, offset) -> None:
+        self.write_text_with_width(self._get_current(), offset=offset)
+
+    @staticmethod
+    def _read_text(text) -> None:
+        if SUPPRESS_READING():
+            return
+        readable_text = f'CreateObject("SAPI.SpVoice").Speak "{text}"'
+        with open(READ_ALOUD_FILE, "w") as fo:
+            fo.write(readable_text)
+        os_system(READ_ALOUD_FILE)
+
+    def run_countdown(self, start_time: int, countdown_time: int) -> None:
+        from time import sleep
+
+        if RUN_COUNTDOWN():
+            for i in range(countdown_time + 1):
+                if not GAME_RUNNING:
+                    my_print()
+                    return
+                current_time = start_time - i
+                my_print(f"\r{current_time // 60}:{current_time % 60:0>2}", end='', flush=True)
+                sleep(1)
+            countdown_end = "Время вышло, сдавайте ваши ответы"
+            my_print(f"\r{countdown_end}")
+            self._read_text(f"ПИИИИИП! {countdown_end}")
+
+    @staticmethod
+    def show_pictures(pictures: List[str]) -> None:
+        prefix = "   !!!: "
+
+        def open_browser(val) -> bool:
+            browsers = [
+                ["chrome", "Google Chrome"],
+                ["firefox", "Firefox"],
+                ["browser", "Yandex Browser"],
+                [
+                    {SYSTEM_WINDOWS: "start", SYSTEM_LINUX: "xdg-open", SYSTEM_MACOS: "open"}.get(
+                        CURRENT_SYSTEM, "Unknown System"
+                    ),
+                    "Default browser",
+                ],
+            ]
+            for browser in browsers:
+                com2 = f"{browser[0]} {val}"
+                res = run_system_command(com2)
+                if res == 0:
+                    my_print(f"{prefix}{val} is opened in {browser[1]}")
+                    return True
+            return False
+
+        def copy_to_buffer(val) -> None:
+            import clipboard
+
+            clipboard.copy(val)
+            my_print(f"{prefix}{val} is copied to buffer")
+
+        int_on = is_internet_on()
+        for pic in pictures:
+            if int_on:
+                try:
+                    if not open_browser(pic):
+                        copy_to_buffer(pic)
+                except Exception as e:
+                    copy_to_buffer(pic)
+            else:
+                copy_to_buffer(pic)
+
+    @staticmethod
+    def write_text_with_width(text, offset: int) -> None:
+        width = CONSOLE_WIDTH
+        current_postion = 0
+        handout_end = text.find("</раздатка>")
+        # TODO: add other handout types
+        start_index = 0
+        if handout_end != -1:
+            start_index = handout_end + 12
+        text = (text[:start_index] + text[start_index:].replace('\n', ' ')).replace('<br>', '\n').replace('<br/>', '\n')
+
+        while current_postion < len(text):
+            next_position = text.rfind(" ", current_postion, current_postion + width - offset)
+            new_line_next_postion = text.find("\n", current_postion, next_position)
+            if new_line_next_postion != -1:
+                next_position = new_line_next_postion
+            if next_position != -1 and current_postion + width <= len(text):
+                my_print(text[current_postion:next_position])
+            else:
+                my_print(text[current_postion:])
+                break
+            current_postion = next_position + 1
+            offset = 0
+
+    def process_reading_aloud(self, start_time: int, countdown_time: int) -> None:
+        global GAME_RUNNING
+        try:
+            if IS_READ_ALOUD():
+                has_handouts_or_pics = (len(self.get_handouts()) > 0) or self.has_pictures()
+                str_to_read = f'{"Внимание, в вопросе есть раздаточный материал!    " if has_handouts_or_pics else ""}{self.get_audio_text()}'
+
+                if SUPPRESS_READING():
+                    from time import sleep
+
+                    sleep(TIME_TO_WAIT)
+                    my_print(f"READING:\n'''{str_to_read}'''")
+                else:
+                    self._read_text(str_to_read)
+
+            GAME_RUNNING = True
+            if countdown_time > 0:
+                self.run_countdown(start_time, countdown_time)
+        except Exception as e:
+            my_print(format_exc(), silent=True)
+            mid_input(f"ERROR: {e}")
+        except KeyboardInterrupt:
+            my_print("read_text_aloud: Ctrl+C")
+
+    def process_question(self, prefix: str, quest_number: int, result_saver):
+        start_countdown = sum(self._TIME)
+        my_print(prefix, end="")
+
+        for ind, quest in enumerate(self._question_texts):
+            global GAME_RUNNING
+            self._current_ind = ind
+
+            self.show_pictures(self.find_pictures())
+
+            if not SUPPRESS_TEXT():
+                self._print_text(offset=len(prefix) if ind == 0 else 0)
+            else:
+                handouts = ' '.join(f'[{val}]' for val in get_handouts(quest))
+                self.write_text_with_width(handouts, offset=0)
+
+            reading = Thread(
+                target=self.process_reading_aloud,
+                args=(start_countdown, self._TIME[self._current_ind]),
+            )
+            reading.start()
+
+            mid_input()
+            kill_reading_aloud()
+            GAME_RUNNING = False
+            reading.join()
+
+        for text in self._after_txt:
+            self._current_ind += 1
+            self.show_pictures(self.find_pictures())
+
+            self._print_text(offset=0)
+
+        result_saver.set_author(quest_number, " ".join(self._after_txt[-1].split(' ', 3)[1:3]))
+
+    @staticmethod
+    def generate_question(root: Et.Element):
+        question_text = root.find('Question').text
+        dct = dict([(name, root.find(name).text) for name in ('Answer', 'PassCriteria', 'Comments', 'Authors')])
+        # TODO: add duplets and blitz
+        return SingleQuestion.generate(question_text, **dct)
+
+
+class SingleQuestion(BaseQuestion):
+    _TIME = (60,)
+
+    def __init__(self, txts: Tuple[str, ...], **kwargs):
+        super().__init__(txts, **kwargs)
+
+    @classmethod
+    def generate(cls, txt: str, **kwargs):
+        return cls((txt,), **kwargs)
+
+
+class DupletQuestion(BaseQuestion):
+    _TIME = (0, 30, 30)
+
+    def __init__(self, txts: Tuple[str, ...], **kwargs):
+        super().__init__(txt, **kwargs)
+
+    @classmethod
+    def generate(cls, pretext: str, quest1: str, quest2: str, **kwargs):
+        return cls((pretext, quest1, quest2), **kwargs)
+
+
 def update_src(text: str) -> str:
     return text.replace(CURRENT_DIR, "CURRENT_DIR").replace(PARENT_DIR, "PARENT_DIR").replace('\\', '/')
 
@@ -374,70 +549,8 @@ class ResultSaver:
             fo.write(res)
 
 
-def upd(sss):
-    return sss.replace("_", "=")
-
-
 def is_internet_on():
     return INTERNET_ON and not FORCE_LOCAL()
-
-
-@write_time
-def fin_pic(sss):
-    prefix = "   !!!: "
-
-    def open_chrome(val) -> bool:
-        browsers = [
-            ["chrome", "Google Chrome"],
-            ["firefox", "Firefox"],
-            ["browser", "Yandex Browser"],
-            [
-                {SYSTEM_WINDOWS: "start", SYSTEM_LINUX: "xdg-open", SYSTEM_MACOS: "open"}.get(
-                    CURRENT_SYSTEM, "Unknown System"
-                ),
-                "Default browser",
-            ],
-        ]
-        for browser in browsers:
-            com2 = f"{browser[0]} {val}"
-            res = run_system_command(com2)
-            if res == 0:
-                my_print(f"{prefix}{val} is opened in {browser[1]}")
-                return True
-        return False
-
-    def copy_to_buffer(val):
-        import clipboard
-
-        clipboard.copy(val)
-        my_print(f"{prefix}{val} is copied to buffer")
-
-    if SUPPESS_PICS() or sss is None:
-        return
-
-    q = re.findall(RE_SITE, sss)
-    q2 = re.findall(RE_DB_SITE, sss)
-    if (q is not None and len(q) > 0) or (q2 is not None and len(q2) > 0):
-        int_on = is_internet_on()
-        for j in q:
-            if int_on:
-                try:
-                    if not open_chrome(j[0]):
-                        copy_to_buffer(j[0])
-                except Exception as e:
-                    copy_to_buffer(j[0])
-            else:
-                copy_to_buffer(j[0])
-        for j in q2:
-            uri = f"{DB_CHGK}/images/db/{j[0]}"
-            if int_on:
-                try:
-                    if not open_chrome(uri):
-                        copy_to_buffer(uri)
-                except Exception:
-                    copy_to_buffer(uri)
-            else:
-                copy_to_buffer(uri)
 
 
 @write_time
@@ -521,32 +634,7 @@ def exists_local(filename) -> bool:
 
 
 def read_questions(root, src):
-    global GAME_RUNNING
     parent_xml = None
-
-    # @write_time
-    def pr(st):
-        si = 80
-        p = 0
-        rz = st.find("</раздатка>")
-        beg = 0
-        if rz != -1:
-            beg = rz + 12
-        st = (st[:beg] + st[beg:].replace("\n", " ")).replace("<br>", "\n").replace("<br/>", "\n")
-
-        while p < len(st):
-            nx = p + si
-            nx = st.rfind(" ", p, nx)
-            nxx = st.find("\n", p, nx)
-            # print(p, nx, ord(st[nx]))
-            if nxx != -1:
-                nx = nxx
-            if nx != -1 and p + si < len(st):
-                my_print(st[p:nx])
-            else:
-                my_print(st[p:])
-                break
-            p = nx + 1
 
     @write_time
     def get_parent_xml(parent_src, silent=False):
@@ -597,36 +685,10 @@ def read_questions(root, src):
             total += 1
             quest_number = (int(i.find('Number').text) - 1) % num + 1
 
-            quest = i.find('Question').text
-            tx = f"{quest_number}/{num}) {quest}"
-            reading = Thread(target=read_text_aloud, args=(quest,))
-            fin_pic(quest)
-            if SUPPRESS_TEXT():
-                handouts = ' '.join(f'[{val}]' for val in get_handouts(quest))
-                tx = f"{quest_number}/{num}) {handouts}"
-            pr(tx)
-            GAME_RUNNING = True
-            reading.start()
+            prefix = f"{quest_number}/{num}) "
 
-            mid_input()
-            kill_reading_aloud()
-            GAME_RUNNING = False
-            reading.join()
-
-            answer = i.find('Answer').text
-            fin_pic(answer)
-            pr(f"Ответ: {answer}")
-
-            pass_criteria = i.find('PassCriteria').text
-            fin_pic(pass_criteria)
-            pr(f"Зачёт: {pass_criteria}")
-
-            com = f"Комментарий: {i.find('Comments').text}"
-            fin_pic(com)
-            pr(com)
-
-            pr(f"Автор: {i.find('Authors').text}")
-            result_saver.set_author(quest_number, " ".join(i.find("Authors").text.split(' ', 2)[:2]))
+            question = BaseQuestion.generate_question(i)
+            question.process_question(prefix, quest_number, result_saver)
 
             saved = False
             while True:
@@ -663,24 +725,14 @@ def read_questions(root, src):
     except Exception as e:
         my_print(e)
         result_saver.write_unfinished()
-        # raise e
         return None
     except KeyboardInterrupt as ki:
         result_saver.write_unfinished()
         raise ki
 
 
-if __name__ == '__main__':
-    # fin_pic("<Question>[Раздаточный материал: (pic: https://i.imgur.com/huytXYR.png)] Интересно, что один бакенбард этого персонажа компьютерной игры меньше другого, что хорошо заметно и в момент превращения. Назовите имя этого персонажа.</Question>")
-
-    # read_page()
-    # s = u20let.1
-    # question 6 - 2 images from database, 8 - razdatka
-    # s = "balt20-1_u.2"
-    # s = "mosstud19_u.2"
-    # s = "ZelShum2_u.1"
-    # s = "mkm17.6"
-
+def main():
+    global GAME_RUNNING, RUNNING
     try:
         check_connection = None
         init_testing()
@@ -742,6 +794,20 @@ if __name__ == '__main__':
         kill_reading_aloud()
         if check_connection is not None:
             check_connection.join()
+
+
+if __name__ == '__main__':
+    # fin_pic("<Question>[Раздаточный материал: (pic: https://i.imgur.com/huytXYR.png)] Интересно, что один бакенбард этого персонажа компьютерной игры меньше другого, что хорошо заметно и в момент превращения. Назовите имя этого персонажа.</Question>")
+
+    # read_page()
+    # s = u20let.1
+    # question 6 - 2 images from database, 8 - razdatka
+    # s = "balt20-1_u.2"
+    # s = "mosstud19_u.2"
+    # s = "ZelShum2_u.1"
+    # s = "mkm17.6"
+
+    main()
     # read_page("ovsch20.3_u.1", "ovsch20.3_u.1")
     # cursor.execute("""SELECT * FROM links""")
     # print(cursor.fetchall())
@@ -785,4 +851,6 @@ if __name__ == '__main__':
 # DONE: Added test creator (existing questions from different packages by its names into one new package)
 # DONE: Added replacing from transliteration in square brackets
 # DONE: Added game mode (timer, no text, only reading aloud and pictures)
+# DONE: Created BaseQuestion class and moved all questions functions into it
+# TODO: add other handout types into BaseQuestion.write_text_with_width
 # TODO: add duplets and blitz to reading and showing pictures (u20let.1/6)
