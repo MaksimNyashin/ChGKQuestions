@@ -65,13 +65,14 @@ class TransNode:
         self._change = None
         self._word_num = word_num
         self._dep = dep
+        self._root = None
 
         # root only
         self._letters = set()
         self._words = []
 
     def __str__(self):
-        return f"term={self._term}, change={self._change!r}, word={self._words[self._word_num]!r}, dep={self._dep}, pref={self._words[self._word_num][:self._dep]!r}"
+        return f"term={self._term}, change={self._change!r}, word={self._root._words[self._word_num]!r}, dep={self._dep}, pref={self._root._words[self._word_num][:self._dep]!r}"
 
     def _get_child(self, ch, default):
         return self._children.get(ch, default)
@@ -90,6 +91,7 @@ class TransNode:
             if cur._children.get(let, None) is None:
                 cur._children[let] = TransNode(word_num, ind + 1)
             cur = cur._children[let]
+            cur._root = root
         cur._term = True
         cur._change = change
 
@@ -141,6 +143,7 @@ class TransNode:
 
         c = compile("([\"']?[a-zA-Z][^а-яА-ЯёЁ\[]*[^\sа-яА-ЯёЁ\[])\s*\[([^\]]+)\]", DOTALL)
         root = TransNode(0, 0)
+        root._root = root
         for i in findall(c, txt):
             root.add_str(*i)
         root.build_aho()
@@ -219,6 +222,7 @@ class Reader:
         if self.is_auto_playing():
             add_layer(LAYERS.READER)
             IS_READ_ALOUD(False)
+            SUPPESS_PICS(True)
         Reader._instances.append(self)
         with open(COMMAND_HISTORY_LOG_FILE, "w"):
             pass
@@ -408,7 +412,7 @@ def fin_pic(sss):
         clipboard.copy(val)
         my_print(f"{prefix}{val} is copied to buffer")
 
-    if SUPPESS_PICS() or sss is None or Reader.get_instance().is_auto_playing():
+    if SUPPESS_PICS() or sss is None:
         return
 
     q = re.findall(RE_SITE, sss)
