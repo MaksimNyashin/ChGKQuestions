@@ -422,7 +422,7 @@ class BaseQuestion(ABC):
             if not SUPPRESS_TEXT():
                 self._print_text(offset=len(prefix) if ind == 0 else 0)
             else:
-                handouts = ' '.join(f'[{val}]' for val in get_handouts(quest))
+                handouts = ' '.join(f'[{val}]' for val in self.get_handouts(quest))
                 self.write_text_with_width(handouts, offset=0)
 
             reading = Thread(
@@ -455,9 +455,6 @@ class BaseQuestion(ABC):
 class SingleQuestion(BaseQuestion):
     _TIME = (60,)
 
-    def __init__(self, txts: Tuple[str, ...], **kwargs):
-        super().__init__(txts, **kwargs)
-
     @classmethod
     def generate(cls, txt: str, **kwargs):
         return cls((txt,), **kwargs)
@@ -465,9 +462,6 @@ class SingleQuestion(BaseQuestion):
 
 class DupletQuestion(BaseQuestion):
     _TIME = (0, 30, 30)
-
-    def __init__(self, txts: Tuple[str, ...], **kwargs):
-        super().__init__(txt, **kwargs)
 
     @classmethod
     def generate(cls, pretext: str, quest1: str, quest2: str, **kwargs):
