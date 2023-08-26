@@ -154,6 +154,7 @@ class Reader:
             add_layer(LAYERS.READER)
             IS_READ_ALOUD(False)
             SUPPESS_PICS(True)
+            RUN_COUNTDOWN(False)
         Reader._instances.append(self)
         with open(COMMAND_HISTORY_LOG_FILE, "w"):
             pass
@@ -386,7 +387,6 @@ class BaseQuestion(ABC):
             offset = 0
 
     def process_reading_aloud(self, start_time: int, countdown_time: int) -> None:
-        global GAME_RUNNING
         try:
             if IS_READ_ALOUD():
                 has_handouts_or_pics = (len(self.get_handouts()) > 0) or self.has_pictures()
@@ -400,7 +400,6 @@ class BaseQuestion(ABC):
                 else:
                     self._read_text(str_to_read)
 
-            GAME_RUNNING = True
             if countdown_time > 0:
                 self.run_countdown(start_time, countdown_time)
         except Exception as e:
@@ -422,21 +421,27 @@ class BaseQuestion(ABC):
             if not SUPPRESS_TEXT():
                 self._print_text(offset=len(prefix) if ind == 0 else 0)
             else:
-                handouts = ' '.join(f'[{val}]' for val in self.get_handouts(quest))
+                handouts = ' '.join(f'[{val}]' for val in self.get_handouts())
                 self.write_text_with_width(handouts, offset=0)
 
+            GAME_RUNNING = True
+            my_print()
             reading = Thread(
                 target=self.process_reading_aloud,
                 args=(start_countdown, self._TIME[self._current_ind]),
             )
             reading.start()
 
-            mid_input()
+            while True:
+                inp = mid_input()
+                if not SUPPRESS_TEXT() or inp != '-t':
+                    break
+                self._print_text(offset=0)
             kill_reading_aloud()
             GAME_RUNNING = False
             reading.join()
 
-        for text in self._after_txt:
+        for _ in self._after_txt:
             self._current_ind += 1
             self.show_pictures(self.find_pictures())
 
@@ -510,6 +515,8 @@ class ResultSaver:
     def set_author(self, num: int, author: str) -> None:
         while len(author) > 0 and not ('а' <= author[-1] <= 'я'):
             author = author[:-1]
+        if len(author) == 0:
+            author = UNKNOWN_AUTHOR
         if 0 < num <= self._number:
             self._authors[author] = self._authors.get(author, 0) | (1 << (num - 1))
 

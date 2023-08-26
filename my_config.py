@@ -310,6 +310,7 @@ DB_CHGK = "https://db.chgk.net"
 # ========== Default values for config options (can be changed) ==========
 
 DEFAULT_DATE = dt_date(1970, 1, 1)
+UNKNOWN_AUTHOR = "Аноним Неизвестный"
 
 FORCE_LOCAL(False)
 SUPPRESS_AUTOSAVE(False)
